@@ -248,12 +248,12 @@ thread_unblock (struct thread *t)
   if (t->priority > thread_current()->priority)
   {
     /* If the unblocked thread has higher priority, */
-    list_push_front(&ready_list, t);
+    list_push_front(&ready_list, &t->elem);
     thread_yield();
   }
   else
   {
-    list_insert_ordered (&ready_list, &t->elem, priority_more_func, NULL);
+    list_insert_ordered (&ready_list, &t->elem, higher_priority, NULL);
     t->status = THREAD_READY;
   }
   intr_set_level (old_level);
@@ -325,7 +325,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    list_insert_ordered(&ready_list, &cur->elem, priority_more_func, NULL);
+    list_insert_ordered(&ready_list, &cur->elem, higher_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -608,7 +608,7 @@ bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,
 
 /* Returns true if the first argument thread has a higher priority than the
    second thread argument */
-bool priority_more_func(const struct list_elem *l1, const struct list_elem *l2,
+bool higher_priority(const struct list_elem *l1, const struct list_elem *l2,
                         void *aux UNUSED) {
   const struct thread* t1 = list_entry(l1, struct thread, sleep_elem);
   const struct thread* t2 = list_entry(l2, struct thread, sleep_elem);

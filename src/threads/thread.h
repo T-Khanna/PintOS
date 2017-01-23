@@ -148,5 +148,8 @@ int thread_get_load_avg (void);
 /* Function that compares list items by wake up time. */
 bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,
                    void *aux);
+/* Returns true if the first element has higher priority than the second */
+bool higher_priority(const struct list_elem *l1, const struct list_elem *l2,
+                        void *aux UNUSED);
 
 #endif /* threads/thread.h */
