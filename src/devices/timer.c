@@ -17,6 +17,9 @@
 #error TIMER_FREQ <= 1000 recommended
 #endif
 
+/* List of all threads which are sleeping */
+static struct list sleeping_threads;
+
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
@@ -37,6 +40,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&sleeping_threads);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,11 +93,27 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
+  /* If TICKS is not positive, the current thread doesn't need to sleep. */
+  if (ticks <= 0) {
+    return;
+  }
 
+  /* Get current thread. */
+  struct thread* t = thread_current();
+
+  /* Temporarily disable interrupts in order to block and add the thread to the
+   * list of sleeping threads using a semaphore. */
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  enum intr_level old = intr_disable();
+
+  /* Set the value of the threads time to wake up. */
+  t->wake_up_time = timer_ticks() + ticks;
+
+  /* Add the current thread into the list of sleeping threads by order of
+   * smallest wake up time. */
+  list_insert_ordered(&sleeping_threads, &t->sleep_elem, cmp_wake_time, NULL);
+  sema_down(&t->timer);
+  intr_set_level(old);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -171,7 +191,25 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  thread_tick ();
+  thread_tick();
+
+  /* Pointer to current thread in sleeping threads. */
+  struct thread* t;
+
+  /* Iterate until all sleeping threads are running or until we encounter
+   * a thread that should still be sleeping. */
+  while (!list_empty(&sleeping_threads)) {
+    /* Get front thread in the list. */
+    t = list_entry(list_front(&sleeping_threads), struct thread, sleep_elem);
+    /* The list of sleeping threads is ordered, so if the current thread still
+     * needs to sleep, the ones remaining in the list must also need to. */
+    if (t->wake_up_time > ticks) {
+      break;
+    }
+    /* Unblock the thread and remove it from the list of sleeping threads. */
+    sema_up(&t->timer);
+    list_pop_front(&sleeping_threads);
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

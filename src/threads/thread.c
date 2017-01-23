@@ -471,6 +471,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  sema_init(&t->timer, 0);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -586,7 +587,16 @@ allocate_tid (void)
 
   return tid;
 }
-
+
+/* Returns true if the first list item has a smaller wake up time than the
+ * second. */
+bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,
+                   void *aux) {
+  const struct thread* t1 = list_entry(l1, struct thread, sleep_elem);
+  const struct thread* t2 = list_entry(l2, struct thread, sleep_elem);
+  return t1->wake_up_time < t2->wake_up_time;
+}
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
