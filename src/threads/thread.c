@@ -70,7 +70,6 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-static void yield_if_higher_priority_ready(void);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -205,10 +204,12 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  intr_set_level (old_level);
-
   /* Add to run queue. */
   thread_unblock (t);
+
+  yield_if_higher_priority_ready();
+
+  intr_set_level(old_level);
 
   return tid;
 }
@@ -246,17 +247,10 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
 
   old_level = intr_disable ();
-  if (t->priority > thread_current()->priority)
-  {
-    /* If the unblocked thread has higher priority, */
-    list_push_front(&ready_list, &t->elem);
-    thread_yield();
-  }
-  else
-  {
-    list_insert_ordered (&ready_list, &t->elem, higher_priority, NULL);
-    t->status = THREAD_READY;
-  }
+
+  t->status = THREAD_READY;
+  list_insert_ordered(&ready_list, &t->elem, higher_priority, NULL);
+
   intr_set_level (old_level);
 }
 
@@ -355,7 +349,10 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
+  //disable interrupts when we check priorities and maybe yield.
+  enum intr_level old_level = intr_disable();
   yield_if_higher_priority_ready();
+  intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -601,12 +598,17 @@ allocate_tid (void)
 }
 
 /* Yields if there is a higher priority thread ready to run */
-static void 
+void
 yield_if_higher_priority_ready(void)
 {
+  ASSERT(intr_get_level() == INTR_OFF);
+  if (list_empty(&ready_list)) {
+    return;
+  }
   //get the highest priority ready thread (ready list sorted by priority)
   struct thread* highest_priority_thread
-      = list_entry(list_pop_front(&ready_list), struct thread, elem);
+      = list_entry(list_begin(&ready_list), struct thread, elem);
+  ASSERT(highest_priority_thread->status == THREAD_READY);
   if (highest_priority_thread->priority > thread_current()->priority) {
     thread_yield();
   }
@@ -625,6 +627,9 @@ bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,
    second thread argument */
 bool higher_priority(const struct list_elem *l1, const struct list_elem *l2,
                         void *aux UNUSED) {
+  ASSERT(l1 != NULL);
+  ASSERT(l2 != NULL);
+
   const struct thread* t1 = list_entry(l1, struct thread, elem);
   const struct thread* t2 = list_entry(l2, struct thread, elem);
   return t1->priority > t2->priority;
