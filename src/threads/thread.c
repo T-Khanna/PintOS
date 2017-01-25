@@ -70,6 +70,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+static void yield_if_higher_priority_ready(void);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -354,13 +355,7 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
-
-  if (!list_empty(&ready_list) &&
-      new_priority < list_entry(list_head(&ready_list), struct thread, elem)
-      ->priority)
-  {
-    thread_yield();
-  }
+  yield_if_higher_priority_ready();
 }
 
 /* Returns the current thread's priority. */
@@ -400,7 +395,7 @@ thread_get_recent_cpu (void)
   /* Not yet implemented. */
   return 0;
 }
-
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -449,7 +444,7 @@ kernel_thread (thread_func *function, void *aux)
   function (aux);       /* Execute the thread function. */
   thread_exit ();       /* If function() returns, kill the thread. */
 }
-
+
 /* Returns the running thread. */
 struct thread *
 running_thread (void)
@@ -605,6 +600,18 @@ allocate_tid (void)
   return tid;
 }
 
+/* Yields if there is a higher priority thread ready to run */
+static void 
+yield_if_higher_priority_ready(void)
+{
+  //get the highest priority ready thread (ready list sorted by priority)
+  struct thread* highest_priority_thread
+      = list_entry(list_pop_front(&ready_list), struct thread, elem);
+  if (highest_priority_thread->priority > thread_current()->priority) {
+    thread_yield();
+  }
+}
+
 /* Returns true if the first list item has a smaller wake up time than the
  * second. */
 bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,
@@ -618,8 +625,8 @@ bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,
    second thread argument */
 bool higher_priority(const struct list_elem *l1, const struct list_elem *l2,
                         void *aux UNUSED) {
-  const struct thread* t1 = list_entry(l1, struct thread, sleep_elem);
-  const struct thread* t2 = list_entry(l2, struct thread, sleep_elem);
+  const struct thread* t1 = list_entry(l1, struct thread, elem);
+  const struct thread* t2 = list_entry(l2, struct thread, elem);
   return t1->priority > t2->priority;
 }
 
