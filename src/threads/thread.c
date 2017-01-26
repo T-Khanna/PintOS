@@ -146,6 +146,11 @@ thread_tick (void)
   else
     kernel_ticks++;
 
+  /* Update recent_cpu for the current thread */
+  if (t != idle_thread) {
+    t->recent_cpu = ADD_FIXED_POINT_INT(t->recent_cpu, 1);
+  }
+
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -160,6 +165,13 @@ void thread_second(void) {
         = list_size(&ready_list) + (thread_current() == idle_thread ? 0 : 1);
     load_avg = load_avg * load_avg_factor + ready_threads * ready_thread_factor;
   }
+
+  /* update every thread's recent_cpu value */
+  thread_foreach()
+}
+
+void update_recent_cpu (struct thread *t, void *aux UNUSED) {
+  /* not implemented */
 }
 
 /* Prints thread statistics. */
