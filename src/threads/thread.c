@@ -344,15 +344,18 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY.
-   If this is less than the highest priority thread in the ready list, yield */
+   If this is less than the highest priority thread in the ready list, yield.
+   Threads cannot set their priority when the mlfq scheduler is enabled. */
 void
 thread_set_priority (int new_priority)
 {
-  thread_current ()->priority = new_priority;
-  //disable interrupts when we check priorities and maybe yield.
-  enum intr_level old_level = intr_disable();
-  yield_if_higher_priority_ready();
-  intr_set_level(old_level);
+  if (!thread_mlfqs) {
+    thread_current ()->priority = new_priority;
+    //disable interrupts when we check priorities and maybe yield.
+    enum intr_level old_level = intr_disable();
+    yield_if_higher_priority_ready();
+    intr_set_level(old_level);
+  }
 }
 
 /* Returns the current thread's priority. */
