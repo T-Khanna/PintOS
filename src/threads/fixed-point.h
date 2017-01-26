@@ -2,7 +2,7 @@
 #define THREADS_FIXED_POINT_H
 
 // 32 bit integer representing a 17.14 fixed point number.
-#typedef int32_t fixed_point;
+typedef int32_t fixed_point;
 
 #define INTEGER_BITS 17
 #define FRACTIONAL_BITS 14
