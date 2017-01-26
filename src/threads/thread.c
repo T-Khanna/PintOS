@@ -494,7 +494,8 @@ init_thread (struct thread *t, const char *name, int priority)
     t->nice = 0;
     /* The initial thread should have a recent_cpu value of 0, the rest
        shoud have the same value as the running thread. */
-    t->recent_cpu = (t == &initial_thread) ? 0 : thread_current()->recent_cpu;
+    t->recent_cpu = (t == initial_thread) ? 0 : thread_current()->recent_cpu;
+    update_priority(t);
   } else {
     t->priority = priority;
   }
