@@ -367,24 +367,24 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED)
+thread_set_nice (int nice)
 {
-  /* Not yet implemented. */
+  thread_current()->nice = nice;
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Dynamically calculates and sets the priority
    according to the BSD scheduler. */
 void update_priority(struct thread * t) {
   ASSERT(thread_mlfqs);
-  t->priority = PRI_MAX - (t->recent_cpu / 4) - (t->nice * 2);
+  t->priority = INT_TO_FIXED_POINT(PRI_MAX - t->nice * 2)
+                - DIV_FIXED_POINT_INT(t->recent_cpu, 4);
 }
 
 /* Returns 100 times the system load average. */

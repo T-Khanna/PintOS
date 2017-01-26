@@ -11,8 +11,8 @@ typedef int32_t fixed_point;
 #define INT_TO_FIXED_POINT(n) (n * FIXED_POINT_FACTOR)
 
 #define TO_INT_ROUND_0(x) (x / FIXED_POINT_FACTOR)
-#define TO_INT_ROUND_NEAREST(x) (x >= 0 ?
-    (x + FIXED_POINT_FACTOR / 2) / FIXED_POINT_FACTOR :
+#define TO_INT_ROUND_NEAREST(x) (x >= 0 ? \
+    (x + FIXED_POINT_FACTOR / 2) / FIXED_POINT_FACTOR : \
     (x + FIXED_POINT_FACTOR / 2) / FIXED_POINT_FACTOR)
 
 #define ADD_FIXED_POINT_FIXED_POINT(x, y) (x + y)
