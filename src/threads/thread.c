@@ -167,7 +167,7 @@ void thread_second(void) {
   }
 
   /* update every thread's recent_cpu value */
-  thread_foreach()
+  //TODO
 }
 
 void update_recent_cpu (struct thread *t, void *aux UNUSED) {
