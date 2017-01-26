@@ -369,7 +369,11 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice)
 {
-  thread_current()->nice = nice;
+  //limit nice to be between -20 and 20.
+  int limited_nice = nice > 20 ? 20 :
+                     nice < -20 ? -20 :
+                     nice;
+  thread_current()->nice = limited_nice;
 }
 
 /* Returns the current thread's nice value. */
