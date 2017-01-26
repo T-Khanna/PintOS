@@ -19,6 +19,7 @@ typedef int32_t fixed_point;
 #define SUB_FIXED_POINT_FIXED_POINT(x, y) (x - y)
 #define ADD_FIXED_POINT_INT(x, y) (x + INT_TO_FIXED_POINT(y))
 #define SUB_FIXED_POINT_INT(x, y) (x - INT_TO_FIXED_POINT(y))
+#define SUB_INT_FIXED_POINT(x, y) (INT_TO_FIXED_POINT(x) - y)
 
 #define MUL_FIXED_POINT_FIXED_POINT(x, y) (((int64_t) x) * y / f)
 #define MUL_FIXED_POINT_INT(x, n) (x * n)

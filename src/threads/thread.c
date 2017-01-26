@@ -20,6 +20,10 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+/* values used by the mlfq scheduler. */
+#define NICE_FACTOR 2
+#define RECENT_CPU_FACTOR 4
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -49,6 +53,14 @@ struct kernel_thread_frame
 static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
 static long long user_ticks;    /* # of timer ticks in user programs. */
+
+/* System load average. Estimates number of threads to run over the last
+   minute. Used by the mlfq scheduler */
+static fixed_point load_avg = INT_TO_FIXED_POINT(0); /* initialsed to 0 */
+static fixed_point load_avg_factor
+    = DIV_FIXED_POINT_INT(INT_TO_FIXED_POINT(59), 60);
+static fixed_point ready_thread_factor
+    = DIV_FIXED_POINT_INT(INT_TO_FIXED_POINT(1), 60);
 
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
@@ -137,6 +149,17 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+}
+
+/* Called by the timer interrupt handler once per second.
+   Thus, this function runs in an external interrupt context. */
+void thread_second(void) {
+  /* update recent_cpu. */
+  if (thread_mlfqs) {
+    int ready_threads           /* number of threads ready to run or running. */
+        = list_size(&ready_list) + (thread_current() == idle_thread ? 0 : 1);
+    load_avg = load_avg * load_avg_factor + ready_threads * ready_thread_factor;
+  }
 }
 
 /* Prints thread statistics. */
@@ -390,17 +413,16 @@ int thread_get_nice (void)
    according to the BSD scheduler. */
 void update_priority(struct thread * t) {
   ASSERT(thread_mlfqs);
-  t->priority = INT_TO_FIXED_POINT(PRI_MAX - t->nice * 2)
-                - DIV_FIXED_POINT_INT(t->recent_cpu, 4);
+  t->priority = INT_TO_FIXED_POINT(PRI_MAX - t->nice * NICE_FACTOR)
+                - DIV_FIXED_POINT_INT(t->recent_cpu, RECENT_CPU_FACTOR);
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void)
 {
-  /* Not yet implemented. */
   ASSERT(thread_mlfqs);
-  return 0;
+  return TO_INT_ROUND_NEAREST(MUL_FIXED_POINT_INT(load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
