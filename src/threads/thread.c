@@ -380,6 +380,13 @@ thread_get_nice (void)
   return 0;
 }
 
+/* Dynamically calculates and sets the priority
+   according to the BSD scheduler. */
+void update_priority(struct thread * t) {
+  ASSERT(thread_mlfqs);
+  t->priority = PRI_MAX - (t->recent_cpu / 4) - (t->nice * 2);
+}
+
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void)
@@ -481,7 +488,17 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  t->priority = priority;
+
+
+  if (thread_mlfqs) {
+    t->nice = 0;
+    /* The initial thread should have a recent_cpu value of 0, the rest
+       shoud have the same value as the running thread. */
+    t->recent_cpu = (t == &initial_thread) ? 0 : thread_current()->recent_cpu;
+  } else {
+    t->priority = priority;
+  }
+
   t->magic = THREAD_MAGIC;
   sema_init(&t->timer, 0);
 
