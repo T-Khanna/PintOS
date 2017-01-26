@@ -88,7 +88,11 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
+
     int priority;                       /* Priority. */
+    int nice;                           /* Nice value for the BSD Scheduler. */
+    int recent_cpu;                     /* Recent CPU time received. */
+
     struct list_elem allelem;           /* List element for all threads list. */
 
     struct list_elem sleep_elem;        /* List element for sleeping_threads */
