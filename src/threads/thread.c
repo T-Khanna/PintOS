@@ -369,17 +369,20 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice)
 {
+  ASSERT(thread_mlfqs);
   //limit nice to be between -20 and 20.
   int limited_nice = nice > 20 ? 20 :
                      nice < -20 ? -20 :
                      nice;
   thread_current()->nice = limited_nice;
+
+  yield_if_higher_priority_ready();
 }
 
 /* Returns the current thread's nice value. */
-int
-thread_get_nice (void)
+int thread_get_nice (void)
 {
+  ASSERT(thread_mlfqs);
   return thread_current()->nice;
 }
 
@@ -396,6 +399,7 @@ int
 thread_get_load_avg (void)
 {
   /* Not yet implemented. */
+  ASSERT(thread_mlfqs);
   return 0;
 }
 
@@ -404,6 +408,7 @@ int
 thread_get_recent_cpu (void)
 {
   /* Not yet implemented. */
+  ASSERT(thread_mlfqs);
   return 0;
 }
 
