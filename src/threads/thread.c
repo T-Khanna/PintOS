@@ -154,7 +154,7 @@ thread_tick (void)
 /* Called by the timer interrupt handler once per second.
    Thus, this function runs in an external interrupt context. */
 void thread_second(void) {
-  /* update recent_cpu. */
+  /* update load_avg. */
   if (thread_mlfqs) {
     int ready_threads           /* number of threads ready to run or running. */
         = list_size(&ready_list) + (thread_current() == idle_thread ? 0 : 1);
