@@ -90,8 +90,8 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
 
     int priority;                       /* Priority. */
-    int nice;                           /* Nice value for the BSD Scheduler. */
-    int recent_cpu;                     /* Recent CPU time received. */
+    fixed_point nice;                   /* Nice value for the BSD Scheduler. */
+    fixed_point recent_cpu;             /* Recent CPU time received. */
 
     struct list_elem allelem;           /* List element for all threads list. */
 

@@ -491,11 +491,17 @@ init_thread (struct thread *t, const char *name, int priority)
 
 
   if (thread_mlfqs) {
-    t->nice = 0;
-    /* The initial thread should have a recent_cpu value of 0, the rest
-       shoud have the same value as the running thread. */
-    t->recent_cpu = (t == initial_thread) ? 0 : thread_current()->recent_cpu;
+    /* The initial thread should have a recent_cpu and nice values of 0,
+       the rest shoud have the same values as their parent. */
+    if (t == initial_thread) {
+      t->nice = 0;
+      t->recent_cpu = 0;
+    } else {
+      t->nice = thread_current()->nice;
+      t->recent_cpu = thread_current()->recent_cpu;
+    }
     update_priority(t);
+
   } else {
     t->priority = priority;
   }
