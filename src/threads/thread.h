@@ -147,7 +147,7 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
-void update_priority(struct thread *);
+void update_priority(struct thread *, void *aux UNUSED);
 
 int thread_get_nice (void);
 void thread_set_nice (int);

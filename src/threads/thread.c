@@ -27,6 +27,9 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+/* The number of thready ready, cached to avoid traversing the linked list of
+   ready threads every second. */
+static int ready_threads = 0;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -82,6 +85,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+void update_recent_cpu (struct thread *t, void *aux UNUSED);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -153,6 +157,16 @@ thread_tick (void)
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
+    if (thread_mlfqs) {
+      //udpate the priority of all items in the ready list, then re-sort
+      struct list_elem *e;
+      for (e = list_begin (&ready_list); e != list_end (&ready_list);
+           e = list_next (e)) {
+        update_priority(list_entry(e, struct thread, elem), NULL);
+      }
+      list_sort(&ready_list, higher_priority, NULL);
+    }
+
     intr_yield_on_return ();
 }
 
@@ -161,17 +175,23 @@ thread_tick (void)
 void thread_second(void) {
   /* update load_avg. */
   if (thread_mlfqs) {
-    int ready_threads           /* number of threads ready to run or running. */
-        = list_size(&ready_list) + (thread_current() == idle_thread ? 0 : 1);
     load_avg = load_avg * load_avg_factor + ready_threads * ready_thread_factor;
   }
 
-  /* update every thread's recent_cpu value */
-  //TODO
+  /* update the recent_cpu value of every thread */
+  thread_foreach(update_recent_cpu, NULL);
 }
 
+/* update recent_cpu for a single thread */
 void update_recent_cpu (struct thread *t, void *aux UNUSED) {
-  /* not implemented */
+  const fixed_point twice_load_avg = MUL_FIXED_POINT_INT(load_avg, 2);
+  const fixed_point load_avg_factor
+      = DIV_FIXED_POINT_FIXED_POINT(twice_load_avg,
+                                    ADD_FIXED_POINT_INT(twice_load_avg, 1));
+  t->recent_cpu
+      = ADD_FIXED_POINT_INT(MUL_FIXED_POINT_FIXED_POINT(load_avg_factor,
+                                                        t->recent_cpu),
+                            t->nice);
 }
 
 /* Prints thread statistics. */
@@ -262,6 +282,7 @@ thread_block (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
+  ready_threads--;
   schedule ();
 }
 
@@ -285,6 +306,7 @@ thread_unblock (struct thread *t)
 
   t->status = THREAD_READY;
   list_insert_ordered(&ready_list, &t->elem, higher_priority, NULL);
+  ready_threads++;
 
   intr_set_level (old_level);
 }
@@ -354,8 +376,9 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread)
+  if (cur != idle_thread) {
     list_insert_ordered(&ready_list, &cur->elem, higher_priority, NULL);
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -411,7 +434,11 @@ thread_set_nice (int nice)
                      nice;
   thread_current()->nice = limited_nice;
 
+  update_priority(thread_current(), NULL);
+
+  enum intr_level old_level = intr_disable();
   yield_if_higher_priority_ready();
+  intr_set_level(old_level);
 }
 
 /* Returns the current thread's nice value. */
@@ -421,9 +448,9 @@ int thread_get_nice (void)
   return thread_current()->nice;
 }
 
-/* Dynamically calculates and sets the priority
-   according to the BSD scheduler. */
-void update_priority(struct thread * t) {
+/* Dynamically calculates and sets the priority according to the BSD scheduler.
+   Second argument allows it to be applied to every item in a list. */
+void update_priority(struct thread * t, void* aux UNUSED) {
   ASSERT(thread_mlfqs);
   t->priority = INT_TO_FIXED_POINT(PRI_MAX - t->nice * NICE_FACTOR)
                 - DIV_FIXED_POINT_INT(t->recent_cpu, RECENT_CPU_FACTOR);
@@ -543,7 +570,7 @@ init_thread (struct thread *t, const char *name, int priority)
       t->nice = thread_current()->nice;
       t->recent_cpu = thread_current()->recent_cpu;
     }
-    update_priority(t);
+    update_priority(t, NULL);
 
   } else {
     t->priority = priority;
