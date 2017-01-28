@@ -191,10 +191,7 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  thread_tick();
-  if (ticks % TIMER_FREQ == 0) {
-    thread_second();
-  }
+  thread_tick(ticks);
 
   /* Pointer to current thread in sleeping threads. */
   struct thread* t;
