@@ -27,9 +27,6 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
-/* The number of thready ready, cached to avoid traversing the linked list of
-   ready threads every second. */
-static int ready_threads = 0;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -60,9 +57,9 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* System load average. Estimates number of threads to run over the last
    minute. Used by the mlfq scheduler */
 static fixed_point load_avg = INT_TO_FIXED_POINT(0); /* initialsed to 0 */
-static fixed_point load_avg_factor
+static const fixed_point load_avg_factor
     = DIV_FIXED_POINT_INT(INT_TO_FIXED_POINT(59), 60);
-static fixed_point ready_thread_factor
+static const fixed_point ready_thread_factor
     = DIV_FIXED_POINT_INT(INT_TO_FIXED_POINT(1), 60);
 
 /* Scheduling. */
@@ -151,12 +148,12 @@ thread_tick (void)
     kernel_ticks++;
 
   /* Update recent_cpu for the current thread */
-  if (t != idle_thread) {
+  if (thread_mlfqs && t != idle_thread) {
     t->recent_cpu = ADD_FIXED_POINT_INT(t->recent_cpu, 1);
   }
 
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
+  if (++thread_ticks >= TIME_SLICE) {
     if (thread_mlfqs) {
       //udpate the priority of all items in the ready list, then re-sort
       struct list_elem *e;
@@ -168,6 +165,7 @@ thread_tick (void)
     }
 
     intr_yield_on_return ();
+  }
 }
 
 /* Called by the timer interrupt handler once per second.
@@ -175,7 +173,14 @@ thread_tick (void)
 void thread_second(void) {
   /* update load_avg. */
   if (thread_mlfqs) {
-    load_avg = load_avg * load_avg_factor + ready_threads * ready_thread_factor;
+    ASSERT(load_avg >= 0);
+    const int ready_threads = list_size(&ready_list)
+        + (thread_current() == idle_thread ? 0 : 1);
+    printf("number of ready threads: %d\n", ready_threads);
+    load_avg = ADD_FIXED_POINT_FIXED_POINT(
+                 MUL_FIXED_POINT_FIXED_POINT(load_avg, load_avg_factor),
+                 MUL_FIXED_POINT_INT(ready_thread_factor, ready_threads)
+               );
   }
 
   /* update the recent_cpu value of every thread */
@@ -282,7 +287,7 @@ thread_block (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
-  ready_threads--;
+
   schedule ();
 }
 
@@ -306,7 +311,6 @@ thread_unblock (struct thread *t)
 
   t->status = THREAD_READY;
   list_insert_ordered(&ready_list, &t->elem, higher_priority, NULL);
-  ready_threads++;
 
   intr_set_level (old_level);
 }
