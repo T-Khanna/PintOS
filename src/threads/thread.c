@@ -27,6 +27,8 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+/* TODO: cache number of ready lists in some way (traversing list in interrupt
+   handler every second is not good) */
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -171,24 +173,23 @@ thread_tick (void)
 /* Called by the timer interrupt handler once per second.
    Thus, this function runs in an external interrupt context. */
 void thread_second(void) {
-  /* update load_avg. */
   if (thread_mlfqs) {
+    /* update load_avg. */
     ASSERT(load_avg >= 0);
     const int ready_threads = list_size(&ready_list)
         + (thread_current() == idle_thread ? 0 : 1);
-    printf("number of ready threads: %d\n", ready_threads);
     load_avg = ADD_FIXED_POINT_FIXED_POINT(
                  MUL_FIXED_POINT_FIXED_POINT(load_avg, load_avg_factor),
                  MUL_FIXED_POINT_INT(ready_thread_factor, ready_threads)
                );
-  }
 
-  /* update the recent_cpu value of every thread */
-  thread_foreach(update_recent_cpu, NULL);
+     /* update the recent_cpu value of every thread */
+     thread_foreach(update_recent_cpu, NULL);
+  }
 }
 
 /* update recent_cpu for a single thread */
-void update_recent_cpu (struct thread *t, void *aux UNUSED) {
+void update_recent_cpu(struct thread *t, void *aux UNUSED) {
   const fixed_point twice_load_avg = MUL_FIXED_POINT_INT(load_avg, 2);
   const fixed_point load_avg_factor
       = DIV_FIXED_POINT_FIXED_POINT(twice_load_avg,
@@ -307,6 +308,10 @@ thread_unblock (struct thread *t)
   ASSERT (is_thread (t));
   ASSERT (t->status == THREAD_BLOCKED);
 
+  if (thread_mlfqs) {
+    update_priority(t, NULL);
+  }
+
   old_level = intr_disable ();
 
   t->status = THREAD_READY;
@@ -379,6 +384,10 @@ thread_yield (void)
 
   ASSERT (!intr_context ());
 
+  if (thread_mlfqs) {
+    update_priority(cur, NULL);
+  }
+
   old_level = intr_disable ();
   if (cur != idle_thread) {
     list_insert_ordered(&ready_list, &cur->elem, higher_priority, NULL);
@@ -432,9 +441,9 @@ void
 thread_set_nice (int nice)
 {
   ASSERT(thread_mlfqs);
-  //limit nice to be between -20 and 20.
-  int limited_nice = nice > 20 ? 20 :
-                     nice < -20 ? -20 :
+  //limit the desired nice to be between the minimum and maximum allowed nice.
+  int limited_nice = nice > NICE_MAX ? NICE_MAX :
+                     nice < NICE_MIN ? NICE_MIN :
                      nice;
   thread_current()->nice = limited_nice;
 
@@ -456,8 +465,10 @@ int thread_get_nice (void)
    Second argument allows it to be applied to every item in a list. */
 void update_priority(struct thread * t, void* aux UNUSED) {
   ASSERT(thread_mlfqs);
-  t->priority = INT_TO_FIXED_POINT(PRI_MAX - t->nice * NICE_FACTOR)
-                - DIV_FIXED_POINT_INT(t->recent_cpu, RECENT_CPU_FACTOR);
+  int new_priority = INT_TO_FIXED_POINT(PRI_MAX - t->nice * NICE_FACTOR)
+                     - DIV_FIXED_POINT_INT(t->recent_cpu, RECENT_CPU_FACTOR);
+  //limit the new priority to be at least the minimum priority, PRI_MIN.
+  t->priority = new_priority < PRI_MIN ? PRI_MIN : new_priority;
 }
 
 /* Returns 100 times the system load average. */
@@ -472,9 +483,9 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void)
 {
-  /* Not yet implemented. */
   ASSERT(thread_mlfqs);
-  return 0;
+  return TO_INT_ROUND_NEAREST(MUL_FIXED_POINT_INT(thread_current()->recent_cpu,
+                                                  100));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
