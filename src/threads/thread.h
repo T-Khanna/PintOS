@@ -151,9 +151,9 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 /* Donates priority to the provided thread */
-void thread_donate_priority(struct thread *t);
+void thread_donate_priority(struct thread *doner, struct thread *donee);
 /* Removes donation_elem from the provided thread, and gets backthe priority */
-void thread_withdraw_priority(struct thread *t);
+void thread_withdraw_priority(struct thread *doner, struct thread *donee);
 
 /* Function that compares list items by wake up time. */
 bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,

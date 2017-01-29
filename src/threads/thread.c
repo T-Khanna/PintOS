@@ -359,7 +359,14 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void)
 {
-  return thread_current ()->priority;
+  if (list_empty(&thread_current()->priority_donations) ||
+      thread_current()->priority > 
+           list_entry(list_begin(&thread_current()->priority_donations), 
+           struct thread, donation_elem)->priority) {
+    return thread_current ()->priority;
+  }
+  return list_entry(list_begin(&thread_current()->priority_donations), 
+           struct thread, donation_elem)->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -383,6 +390,21 @@ thread_get_load_avg (void)
 {
   /* Not yet implemented. */
   return 0;
+}
+
+
+/* Donates priority to the provided thread */
+void
+thread_donate_priority(struct thread *doner, struct thread *donee)
+{
+  /* Not yet implemented. */
+}
+
+/* Removes donation_elem from the provided thread, and gets backthe priority */
+void
+thread_withdraw_priority(struct thread *doner, struct thread *donee)
+{
+  /* Not yet implemented. */
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -481,6 +503,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   sema_init(&t->timer, 0);
+
+  list_init(&t->priority_donations);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
