@@ -373,8 +373,26 @@ thread_donate_priority(struct thread *doner, struct thread *donee)
 
 /* Removes donation_elem from the provided thread, and gets backthe priority */
 void
-thread_withdraw_priority(struct thread *doner, struct thread *donee)
+thread_withdraw_priority(struct list *list, struct thread *holder)
 {
+
+    struct list_elem *e;
+  for (e = list_begin (list); e != list_end (list); e = list_next(e)) {
+     //printf("THE THREAD %s IS IN THE WAITERS LIST\n", list_entry(e, struct thread, donation_elem)->name);
+     // printf("BUBU\n");
+      struct thread *t = list_entry(e, struct thread, donation_elem);
+
+      struct list_elem *e2;
+      for (e2 = list_begin(&holder->priority_donations); e2 != list_end(&holder->priority_donations);
+              e2 = list_next(e2)) {
+          //if (e == e2) {
+              //list_remove(e2);
+          //}
+      }
+  }
+ thread_update_effective_priority(holder);
+
+
   /* Not yet implemented. */
 }
 

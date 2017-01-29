@@ -154,7 +154,7 @@ int thread_get_load_avg (void);
 /* Donates priority to the provided thread */
 void thread_donate_priority(struct thread *doner, struct thread *donee);
 /* Removes donation_elem from the provided thread, and gets backthe priority */
-void thread_withdraw_priority(struct thread *doner, struct thread *donee);
+void thread_withdraw_priority(struct list *list, struct thread *t);
 
 void thread_update_effective_priority(struct thread *t);
 

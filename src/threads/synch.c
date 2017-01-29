@@ -245,6 +245,47 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+//if (!list_empty(&lock->semaphore.waiters)) {
+  thread_withdraw_priority(&lock->semaphore.waiters, lock->holder);
+ 
+  //struct list *list = &lock->semaphore.waiters;
+  //struct thread *holder = lock->holder;
+ struct list_elem *e;
+  for (e = list_begin (&lock->semaphore.waiters); e != list_end (&lock->semaphore.waiters); e = list_next(e)) {
+     //printf("THE THREAD %s IS IN THE WAITERS LIST\n", list_entry(e, struct thread, donation_elem)->name);
+     // printf("BUBU\n");
+      struct thread *t = list_entry(e, struct thread, elem);
+
+      struct list_elem *e2;
+     for (e2 = list_begin(&lock->holder->priority_donations); e2 != list_end(&lock->holder->priority_donations);
+              e2 = list_next(e2)) {
+         struct thread *t2 = list_entry(e2, struct thread, donation_elem);
+          if (t == t2) {
+              list_remove(e2);
+              //asm volatile("":::"memory");
+          }
+      }
+  }
+ //thread_update_effective_priority(holder);
+ 
+  //    printf("HELLOOOO I AM A THREAD INSIDE WAITERS, MY NAME IS: %s\n", 
+  //            list_entry(list_front(&lock->semaphore.waiters), struct thread, donation_elem)->name);
+
+  //}
+  //
+   /*
+    struct list_elem *e2;
+    for (e2 = list_begin(&lock->holder->priority_donations); e2 != list_end(&lock->holder->priority_donations);
+              e2 = list_next(e2)) {
+          //if (e == e2) {
+              list_remove(e2);
+          //}
+      }
+
+
+*/
+  //printf("BUBU\n");
+  thread_update_effective_priority(lock->holder);
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
