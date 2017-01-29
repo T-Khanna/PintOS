@@ -388,11 +388,11 @@ thread_update_effective_priority (struct thread *t)
   //Uncertain about returning the priority.
   
   if (list_empty(&t->priority_donations) ||
-      t->priority > list_entry(list_begin(&t->priority_donations), 
+      t->priority > list_entry(list_back(&t->priority_donations), 
            struct thread, donation_elem)->priority) {
     t->effective_priority = t->priority;
   } else {
-    t->effective_priority = list_entry(list_begin(&t->priority_donations), 
+    t->effective_priority = list_entry(list_back(&t->priority_donations), 
            struct thread, donation_elem)->priority;
   }
 }
