@@ -89,6 +89,7 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
+    int effective_priority;             /* Effective Priority */
     struct list_elem allelem;           /* List element for all threads list. */
 
     struct list_elem sleep_elem;        /* List element for sleeping_threads */
@@ -154,6 +155,8 @@ int thread_get_load_avg (void);
 void thread_donate_priority(struct thread *doner, struct thread *donee);
 /* Removes donation_elem from the provided thread, and gets backthe priority */
 void thread_withdraw_priority(struct thread *doner, struct thread *donee);
+
+void thread_update_effective_priority(struct thread *t);
 
 /* Function that compares list items by wake up time. */
 bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,

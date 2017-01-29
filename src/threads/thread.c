@@ -359,14 +359,42 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void)
 {
-  if (list_empty(&thread_current()->priority_donations) ||
-      thread_current()->priority > 
-           list_entry(list_begin(&thread_current()->priority_donations), 
+  return thread_current()->effective_priority;
+}
+
+/* Donates the priority to the thread that currently holds the lock */
+void
+thread_donate_priority(struct thread *doner, struct thread *donee)
+{
+  list_insert_ordered(&donee->priority_donations, &doner->donation_elem,
+                          higher_priority, NULL);
+  thread_update_effective_priority(donee);
+}
+
+/* Removes donation_elem from the provided thread, and gets backthe priority */
+void
+thread_withdraw_priority(struct thread *doner, struct thread *donee)
+{
+  /* Not yet implemented. */
+}
+
+/* Updates the effective priority of the thread.
+ * TODO This function has to be called also when the base priority
+ * changes */
+void
+thread_update_effective_priority (struct thread *t)
+{
+  //TODO See if the empty list checking needs to be removed.
+  //Uncertain about returning the priority.
+  
+  if (list_empty(&t->priority_donations) ||
+      t->priority > list_entry(list_begin(&t->priority_donations), 
            struct thread, donation_elem)->priority) {
-    return thread_current ()->priority;
-  }
-  return list_entry(list_begin(&thread_current()->priority_donations), 
+    t->effective_priority = t->priority;
+  } else {
+    t->effective_priority = list_entry(list_begin(&t->priority_donations), 
            struct thread, donation_elem)->priority;
+  }
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -390,21 +418,6 @@ thread_get_load_avg (void)
 {
   /* Not yet implemented. */
   return 0;
-}
-
-
-/* Donates priority to the provided thread */
-void
-thread_donate_priority(struct thread *doner, struct thread *donee)
-{
-  /* Not yet implemented. */
-}
-
-/* Removes donation_elem from the provided thread, and gets backthe priority */
-void
-thread_withdraw_priority(struct thread *doner, struct thread *donee)
-{
-  /* Not yet implemented. */
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -501,6 +514,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->effective_priority = t->priority;
   t->magic = THREAD_MAGIC;
   sema_init(&t->timer, 0);
 

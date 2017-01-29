@@ -204,8 +204,15 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  if (lock->holder != NULL && lock->semaphore.value == 0) {
+    thread_donate_priority(thread_current(), lock->holder);    
+  }
+
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  //printf("THE OLD HOLDER IS %s\n", t);
+  //printf("THE CURRENT LOCK HOLDER IS: %s\n", lock->holder->name);
+  
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
