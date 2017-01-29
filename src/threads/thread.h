@@ -100,6 +100,9 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    struct list priority_donations;     /* List of doners */
+    struct list_elem donation_elem;     /* List element for priority donations list */
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -146,6 +149,11 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* Donates priority to the provided thread */
+void thread_donate_priority(struct thread *t);
+/* Removes donation_elem from the provided thread, and gets backthe priority */
+void thread_withdraw_priority(struct thread *t);
 
 /* Function that compares list items by wake up time. */
 bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,
