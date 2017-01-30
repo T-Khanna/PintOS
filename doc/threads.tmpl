@@ -3,14 +3,14 @@
             |  TASK 1: SCHEDULING  |
             |    DESIGN DOCUMENT   |
             +----------------------+
-                   
+
 ---- GROUP ----
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+Alessandro Bonardi ab9515@ic.ac.uk
+Andy Hume ah2814@ic.ac.uk
+Tanmay Khanna tk915@ic.ac.uk
 
 ---- PRELIMINARIES ----
 
@@ -72,6 +72,28 @@ FirstName LastName <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+In newly added fixed-point.h, added the following typedef declaration:
+
+  typedef int32_t fixed_point; - Type to represent a 17.14 fixed-point number.
+
+In thread.h, added following members to 'struct thread':
+
+  int nice;               - Nice value for the thread.
+  fixed_point recent_cpu; - Estimate of CPU time used recently by the thread.
+
+In thread.c, added following variables:
+
+  static int ready_threads;                     - The number of threads ready
+                                                  to run, cached to avoid
+                                                  traversing the ready list
+                                                  per load average computation.
+  static fixed_point load_avg;                  - Estimates number of threads
+                                                  to have run over the last
+                                                  minute.
+  static const fixed_point load_avg_factor;     - Constant factor (59/60) used
+                                                  in load average calculation.
+  static const fixed_point ready_thread_factor; - Constant factor (1/60) used
+                                                  in load average calculation.
 ---- ALGORITHMS ----
 
 >> B2: (5 marks)
@@ -83,21 +105,29 @@ FirstName LastName <email@domain.example>
 timer  recent_cpu    priority   thread
 ticks   A   B   C   A   B   C   to run
 -----  --  --  --  --  --  --   ------
- 0
- 4
- 8
-12
-16
-20
-24
-28
-32
-36
+ 0      0   0   0  63  61  59     A
+ 4      4   0   0  62  61  59     A
+ 8      8   0   0  61  61  59     A
+12     12   0   0  60  61  59     B
+16     12   4   0  60  60  59     A
+20     16   4   0  59  60  59     B
+24     16   8   0  59  59  59     A
+28     20   8   0  58  59  59     B
+32     20  12   0  58  58  59     C
+36     20  12   4  58  58  58     A
 
 >> B3: (5 marks) 
 >> Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behaviour of your scheduler?
+
+Suppose we have a situation where the next thread ready to run has the same
+priority as the currently running thread. The specification does not specify
+whether the running thread should yield in this case.
+  We resolve this ambiguity by the following rule. The running thread must
+yield immediately if and only if the priority of the next ready thread is
+strictly greater than the running thread's priority. This matches the behaviour
+of our scheduler, as shown in our yield_if_higher_priority_ready() function.
 
 >> B4: (5 marks)
 >> How is the way you divided the cost of scheduling between code
@@ -116,3 +146,5 @@ ticks   A   B   C   A   B   C   to run
 >> abstraction layer for fixed-point mathematics, that is, an abstract
 >> data type and/or a set of functions or macros to manipulate
 >> fixed-point numbers, why did you do so?  If not, why not?S
+
+
