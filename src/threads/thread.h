@@ -97,11 +97,12 @@ struct thread
                                            sleeping threads */
     int wake_up_time;                   /* Tick value at which the thread
                                            should wake up. */
-
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
     struct list locks_held;             /* List of currently held locks */
+    struct lock *lock_to_acquire;       /* Lock currently acquired by another
+                                           thread */
     //struct list_elem held_lock_elem;    /* List element for lock_held */
 
 #ifdef USERPROG
@@ -157,6 +158,7 @@ void thread_donate_priority(struct thread *doner, struct thread *donee);
 void thread_withdraw_priority(struct list *list, struct thread *t);
 
 void thread_update_effective_priority(struct thread *t);
+void thread_update_effective_p(struct thread *t, int p);
 
 /* Function that compares list items by wake up time. */
 bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,

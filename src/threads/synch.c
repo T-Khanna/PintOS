@@ -204,16 +204,20 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  //if (lock->holder != NULL && lock->semaphore.value == 0) {
-  //  thread_donate_priority(thread_current(), lock->holder);    
- // }
+  thread_current()->lock_to_acquire = lock;
+  if (lock->holder != NULL) {
+    thread_update_effective_p(lock->holder, thread_current()->effective_priority);    
+  }
  //
   //msg("THE CURRENT THREAD IS: %s\n", thread_current()->name);
-
+  //
+  //thread_current()->lock_to_acquire = lock;
   sema_down (&lock->semaphore);
 
   lock->holder = thread_current ();
+  lock->holder->lock_to_acquire == NULL;
   list_push_back(&lock->holder->locks_held, &lock->lock_elem);
+  thread_update_effective_priority(lock->holder);
 
   //printf("THE OLD HOLDER IS %s\n", t);
   //printf("THE CURRENT LOCK HOLDER IS: %s\n", lock->holder->name);

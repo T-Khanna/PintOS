@@ -425,6 +425,21 @@ thread_update_effective_priority (struct thread *t)
         t->effective_priority = temp_priority;
     }
   }
+
+  if (t->lock_to_acquire == NULL) {
+      printf("BUBU\n");
+  }
+    
+
+
+}
+
+void
+thread_update_effective_p(struct thread *t, int p)
+{
+    if (p > t->effective_priority) {
+        t->effective_priority = p;
+    }
 }
 
 /* Sets the current thread's nice value to NICE. */
