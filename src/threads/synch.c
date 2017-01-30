@@ -204,12 +204,17 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  if (lock->holder != NULL && lock->semaphore.value == 0) {
-    thread_donate_priority(thread_current(), lock->holder);    
-  }
+  //if (lock->holder != NULL && lock->semaphore.value == 0) {
+  //  thread_donate_priority(thread_current(), lock->holder);    
+ // }
+ //
+  //msg("THE CURRENT THREAD IS: %s\n", thread_current()->name);
 
   sema_down (&lock->semaphore);
+
   lock->holder = thread_current ();
+  list_push_back(&lock->holder->locks_held, &lock->lock_elem);
+
   //printf("THE OLD HOLDER IS %s\n", t);
   //printf("THE CURRENT LOCK HOLDER IS: %s\n", lock->holder->name);
   
@@ -246,6 +251,8 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 //if (!list_empty(&lock->semaphore.waiters)) {
+//
+ /*
   thread_withdraw_priority(&lock->semaphore.waiters, lock->holder);
  
   //struct list *list = &lock->semaphore.waiters;
@@ -268,25 +275,15 @@ lock_release (struct lock *lock)
   }
  //thread_update_effective_priority(holder);
  
-  //    printf("HELLOOOO I AM A THREAD INSIDE WAITERS, MY NAME IS: %s\n", 
-  //            list_entry(list_front(&lock->semaphore.waiters), struct thread, donation_elem)->name);
-
-  //}
-  //
-   /*
-    struct list_elem *e2;
-    for (e2 = list_begin(&lock->holder->priority_donations); e2 != list_end(&lock->holder->priority_donations);
-              e2 = list_next(e2)) {
-          //if (e == e2) {
-              list_remove(e2);
-          //}
-      }
-
-
 */
   //printf("BUBU\n");
-  thread_update_effective_priority(lock->holder);
-
+  //
+  
+  //thread_update_effective_priority(lock->holder);
+  //
+  //
+  list_remove(&lock->lock_elem);
+  thread_update_effective_priority(thread_current());
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }

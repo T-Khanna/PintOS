@@ -349,6 +349,7 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
+  thread_update_effective_priority(thread_current());
   //disable interrupts when we check priorities and maybe yield.
   enum intr_level old_level = intr_disable();
   yield_if_higher_priority_ready();
@@ -359,20 +360,21 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void)
 {
+  thread_update_effective_priority(thread_current());
   return thread_current()->effective_priority;
 }
 
-/* Donates the priority to the thread that currently holds the lock */
-void
+///* Donates the priority to the thread that currently holds the lock */
+/*void
 thread_donate_priority(struct thread *doner, struct thread *donee)
 {
   list_insert_ordered(&donee->priority_donations, &doner->donation_elem,
                           higher_priority, NULL);
   thread_update_effective_priority(donee);
 }
-
+*/
 /* Removes donation_elem from the provided thread, and gets backthe priority */
-void
+/*void
 thread_withdraw_priority(struct list *list, struct thread *holder)
 {
 
@@ -393,8 +395,8 @@ thread_withdraw_priority(struct list *list, struct thread *holder)
  thread_update_effective_priority(holder);
 
 
-  /* Not yet implemented. */
-}
+ }
+*/
 
 /* Updates the effective priority of the thread.
  * TODO This function has to be called also when the base priority
@@ -402,16 +404,26 @@ thread_withdraw_priority(struct list *list, struct thread *holder)
 void
 thread_update_effective_priority (struct thread *t)
 {
-  //TODO See if the empty list checking needs to be removed.
   //Uncertain about returning the priority.
   
-  if (list_empty(&t->priority_donations) ||
-      t->priority > list_entry(list_back(&t->priority_donations), 
-           struct thread, donation_elem)->priority) {
-    t->effective_priority = t->priority;
-  } else {
-    t->effective_priority = list_entry(list_back(&t->priority_donations), 
-           struct thread, donation_elem)->priority;
+  t->effective_priority = t->priority;
+  if (!list_empty(&t->locks_held)) {
+    int temp_priority = PRI_MIN;
+    struct list_elem *e;
+    for (e = list_begin(&t->locks_held); e != list_end(&t->locks_held); e = list_next(e)) {
+      if (!list_empty(&list_entry(e, struct lock, lock_elem)->semaphore.waiters)) {
+        int head_priority = list_entry(
+                list_front(&list_entry(e, struct lock, lock_elem)->semaphore.waiters),
+                struct thread,
+                elem)->effective_priority;
+        if (temp_priority < head_priority) {
+            temp_priority = head_priority;
+        }
+      }
+    }
+    if (t->effective_priority < temp_priority) {
+        t->effective_priority = temp_priority;
+    }
   }
 }
 
@@ -536,7 +548,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   sema_init(&t->timer, 0);
 
-  list_init(&t->priority_donations);
+  list_init(&t->locks_held);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -665,7 +677,7 @@ yield_if_higher_priority_ready(void)
   struct thread* highest_priority_thread
       = list_entry(list_begin(&ready_list), struct thread, elem);
   ASSERT(highest_priority_thread->status == THREAD_READY);
-  if (highest_priority_thread->priority > thread_current()->priority) {
+  if (highest_priority_thread->effective_priority > thread_current()->effective_priority) {
     thread_yield();
   }
 }
@@ -688,7 +700,7 @@ bool higher_priority(const struct list_elem *l1, const struct list_elem *l2,
 
   const struct thread* t1 = list_entry(l1, struct thread, elem);
   const struct thread* t2 = list_entry(l2, struct thread, elem);
-  return t1->priority > t2->priority;
+  return t1->effective_priority > t2->effective_priority;
 }
 
 /* Offset of `stack' member within `struct thread'.

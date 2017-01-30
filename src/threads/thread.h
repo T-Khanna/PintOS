@@ -101,8 +101,8 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    struct list priority_donations;     /* List of doners */
-    struct list_elem donation_elem;     /* List element for priority donations list */
+    struct list locks_held;             /* List of currently held locks */
+    //struct list_elem held_lock_elem;    /* List element for lock_held */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
