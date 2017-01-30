@@ -153,6 +153,6 @@ to be an integer that represents a 17.14 fixed-point number, as well as the
 fixed-point operations required by our scheduler.
   Due to the fact that we have to continuously update important fixed-point
 values in the scheduler to calculate thread priorities, we chose to implement
-these arithmetic operations in the form of macros rather than functions. These
-would be processed by the preprocessor and, therefore, would speed up the
-entire process.
+these arithmetic operations in the form of macros rather than functions. Macros
+are replaced by the pre-processor with the defined values, which meant there
+was no unnecessary overhead at runtime from repeated calls.
