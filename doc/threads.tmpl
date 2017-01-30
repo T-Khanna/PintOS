@@ -147,4 +147,12 @@ of our scheduler, as shown in our yield_if_higher_priority_ready() function.
 >> data type and/or a set of functions or macros to manipulate
 >> fixed-point numbers, why did you do so?  If not, why not?S
 
-
+For the fixed-point arithmetic we chose to create a new file in the threads
+directory called fixed-point.h. In this file, we defined the 'fixed_point' type
+to be an integer that represents a 17.14 fixed-point number, as well as the
+fixed-point operations required by our scheduler.
+  Due to the fact that we have to continuously update important fixed-point
+values in the scheduler to calculate thread priorities, we chose to implement
+these arithmetic operations in the form of macros rather than functions. These
+would be processed by the preprocessor and, therefore, would speed up the
+entire process.
