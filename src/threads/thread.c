@@ -854,6 +854,11 @@ bool higher_priority(const struct list_elem *l1, const struct list_elem *l2,
 
   const struct thread* t1 = list_entry(l1, struct thread, elem);
   const struct thread* t2 = list_entry(l2, struct thread, elem);
+
+  if (thread_mlfqs) {
+    return t1->priority > t2->priority;
+  }
+
   return t1->effective_priority > t2->effective_priority;
 }
 
