@@ -69,13 +69,25 @@ sema_down (struct semaphore *sema)
   ASSERT (sema != NULL);
   ASSERT (!intr_context ());
 
+
+    //printf("THE CURRENT THREAD DOWNING THE SEMAPHORE IS");
   old_level = intr_disable ();
+
   while (sema->value == 0) 
     {
+      //printf("THE THREAD %s IS NOW PUT TO SLEEP, GOODNIGHT\n", thread_current()->name);
+      //printf("THE SEMA VALUE IS %d\n", sema->value);
+      
       list_insert_ordered(&sema->waiters, &thread_current()->elem,
                           higher_priority, NULL);
+      if (thread_current()->lock_to_acquire != NULL) {
+          //printf("THE LOCK IS CURRENTLY HELD BY %s YOU BEANBAG\n", thread_current()->lock_to_acquire->holder->name);
+      thread_update_effective_priority(thread_current()->lock_to_acquire->holder);
+      }
+      //printf("Now the number of elements in the list is %d\n", list_size(&sema->waiters));
       thread_block ();
     }
+  //printf("THE SEMA VALUE IS: %d\n", sema->value);
   sema->value--;
   intr_set_level (old_level);
 }
@@ -203,11 +215,12 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
+//printf("The current thread is %s\n", thread_current()->name);
   thread_current()->lock_to_acquire = lock;
-  if (lock->holder != NULL) {
-    thread_update_effective_p(lock->holder, thread_current()->effective_priority);    
-  }
+//  if (lock->holder != NULL) {
+//      printf("The current thread is %s\n", thread_current()->name);
+//    thread_update_effective_p(lock->holder, thread_current()->effective_priority);    
+//  }
  //
   //msg("THE CURRENT THREAD IS: %s\n", thread_current()->name);
   //
@@ -215,7 +228,8 @@ lock_acquire (struct lock *lock)
   sema_down (&lock->semaphore);
 
   lock->holder = thread_current ();
-  lock->holder->lock_to_acquire == NULL;
+  //printf("THREAD %s HAS ACQUIRED THE LOCK %p\n", lock->holder->name, lock);
+  lock->holder->lock_to_acquire = NULL;
   list_push_back(&lock->holder->locks_held, &lock->lock_elem);
   thread_update_effective_priority(lock->holder);
 

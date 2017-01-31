@@ -406,6 +406,8 @@ thread_update_effective_priority (struct thread *t)
 {
   //Uncertain about returning the priority.
   
+int old_p = t->effective_priority;
+
   t->effective_priority = t->priority;
   if (!list_empty(&t->locks_held)) {
     int temp_priority = PRI_MIN;
@@ -426,10 +428,24 @@ thread_update_effective_priority (struct thread *t)
     }
   }
 
-  if (t->lock_to_acquire == NULL) {
-      printf("BUBU\n");
+  //printf("THE PRIORITY OF %s HAS CHANGED FROM %d TO %d\n", t->name, old_p, t->effective_priority);
+
+  if (t->lock_to_acquire != NULL) {
+  //printf("BUBU\n");
+      thread_update_effective_priority(t->lock_to_acquire->holder);
   }
-    
+
+  //if (!is_sorted(list_front(&ready_list), list_tail(&ready_list), higher_priority)) {
+  //    printf("\nAAARGHHH THE LIST IS NOT FUCKING SORTED KILL ME NOWWWW!!!!!\n")
+ // }
+ //
+  list_sort(&ready_list, higher_priority, NULL);
+
+  //if (t == thread_current()) {
+  //enum intr_level old_level = intr_disable();
+  //yield_if_higher_priority_ready();
+  //intr_set_level(old_level);
+  //}  
 
 
 }
