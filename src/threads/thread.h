@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/synch.h"
+#include "threads/fixed-point.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -24,6 +25,10 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+/* Thread nice limits */
+#define NICE_MIN -20                    /* Lowest nice. */
+#define NICE_MAX 20                     /* Highest nice. */
 
 /* A kernel thread or user process.
 
@@ -88,8 +93,13 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
+
     int priority;                       /* Priority. */
     int effective_priority;             /* Effective Priority */
+
+    int nice;                           /* Nice value for the BSD Scheduler. */
+    fixed_point recent_cpu;             /* Recent CPU time received. */
+
     struct list_elem allelem;           /* List element for all threads list. */
 
     struct list_elem sleep_elem;        /* List element for sleeping_threads */
@@ -122,7 +132,7 @@ extern bool thread_mlfqs;
 void thread_init (void);
 void thread_start (void);
 
-void thread_tick (void);
+void thread_tick (int ticks);
 void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
@@ -146,6 +156,7 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+void update_priority(struct thread *, void *aux UNUSED);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
