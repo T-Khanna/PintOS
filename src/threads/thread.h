@@ -171,6 +171,9 @@ void thread_withdraw_priority(struct list *list, struct thread *t);
 void thread_update_effective_priority(struct thread *t);
 void thread_update_effective_p(struct thread *t, int p);
 
+/* Returns maximum of two priorities given. */
+int priority_max(int p1, int p2);
+
 /* Function that compares list items by wake up time. */
 bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,
                    void *aux);

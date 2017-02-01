@@ -446,98 +446,41 @@ thread_get_priority (void)
   return thread_current()->effective_priority;
 }
 
-///* Donates the priority to the thread that currently holds the lock */
-/*void
-thread_donate_priority(struct thread *doner, struct thread *donee)
-{
-  list_insert_ordered(&donee->priority_donations, &doner->donation_elem,
-                          higher_priority, NULL);
-  thread_update_effective_priority(donee);
+int priority_max(int p1, int p2) {
+  return (p1 > p2) ? p1 : p2;
 }
-*/
-/* Removes donation_elem from the provided thread, and gets backthe priority */
-/*void
-thread_withdraw_priority(struct list *list, struct thread *holder)
-{
 
-    struct list_elem *e;
-  for (e = list_begin (list); e != list_end (list); e = list_next(e)) {
-     //printf("THE THREAD %s IS IN THE WAITERS LIST\n", list_entry(e, struct thread, donation_elem)->name);
-     // printf("BUBU\n");
-      struct thread *t = list_entry(e, struct thread, donation_elem);
-
-      struct list_elem *e2;
-      for (e2 = list_begin(&holder->priority_donations); e2 != list_end(&holder->priority_donations);
-              e2 = list_next(e2)) {
-          //if (e == e2) {
-              //list_remove(e2);
-          //}
-      }
-  }
- thread_update_effective_priority(holder);
-
-
- }
-*/
-
-/* Updates the effective priority of the thread.
- * TODO This function has to be called also when the base priority
- * changes */
+/* Updates the effective priority of the thread. */
 void
 thread_update_effective_priority (struct thread *t)
 {
-  //Uncertain about returning the priority.
-  
-int old_p = t->effective_priority;
-
   t->effective_priority = t->priority;
+
+  /* Loops over each lock in the locks_held list, and queries the head of
+   * each waiters list to find the thread with maximum priority. */
   if (!list_empty(&t->locks_held)) {
-    int temp_priority = PRI_MIN;
+    int waiter_priority = PRI_MIN;
+
     struct list_elem *e;
     for (e = list_begin(&t->locks_held); e != list_end(&t->locks_held); e = list_next(e)) {
       if (!list_empty(&list_entry(e, struct lock, lock_elem)->semaphore.waiters)) {
+        /* Gets the priority of the first thread in a waiters list */
         int head_priority = list_entry(
                 list_front(&list_entry(e, struct lock, lock_elem)->semaphore.waiters),
                 struct thread,
                 elem)->effective_priority;
-        if (temp_priority < head_priority) {
-            temp_priority = head_priority;
-        }
+        waiter_priority = priority_max(waiter_priority, head_priority);
       }
     }
-    if (t->effective_priority < temp_priority) {
-        t->effective_priority = temp_priority;
-    }
+    t->effective_priority = priority_max(t->effective_priority, waiter_priority);
   }
-
-  //printf("THE PRIORITY OF %s HAS CHANGED FROM %d TO %d\n", t->name, old_p, t->effective_priority);
-
+  /* Recursive call to the function to update the priority for nested
+   * and chained donations. */
   if (t->lock_to_acquire != NULL) {
-  //printf("BUBU\n");
       thread_update_effective_priority(t->lock_to_acquire->holder);
   }
-
-  //if (!is_sorted(list_front(&ready_list), list_tail(&ready_list), higher_priority)) {
-  //    printf("\nAAARGHHH THE LIST IS NOT FUCKING SORTED KILL ME NOWWWW!!!!!\n")
- // }
- //
+  /* Re-sorts the ready_list */
   list_sort(&ready_list, higher_priority, NULL);
-
-  //if (t == thread_current()) {
-  //enum intr_level old_level = intr_disable();
-  //yield_if_higher_priority_ready();
-  //intr_set_level(old_level);
-  //}  
-
-
-}
-
-void
-thread_update_effective_p(struct thread *t, int p)
-{
-    if (p > t->effective_priority) {
-        t->effective_priority = p;
-    }
 }
 
 /* Sets the current thread's nice value to NICE. */
