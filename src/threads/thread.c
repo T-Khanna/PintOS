@@ -485,7 +485,9 @@ thread_update_effective_priority (struct thread *t)
     thread_update_effective_priority(t->lock_to_acquire->holder);
   }
   /* Re-sorts the ready_list */
-  list_sort(&ready_list, higher_priority, NULL);
+  if (!list_empty(&ready_list)) {
+    list_sort(&ready_list, higher_priority, NULL);
+  }
 }
 
 /* Sets the current thread's nice value to NICE. */
