@@ -485,6 +485,17 @@ list_unique (struct list *list, struct list *duplicates,
       elem = next;
 }
 
+/* Searches for the min element in LIST based on the LESS function provided
+ * and removes it from LIST. Also returns the min element found. */
+struct list_elem *
+list_remove_min (struct list *list, list_less_func *less, void *aux)
+{
+  struct list_elem* min = list_min(list, less, aux);
+  list_remove(min);
+  return min;
+}
+
+
 /* Returns the element in LIST with the largest value according
    to LESS given auxiliary data AUX.  If there is more than one
    maximum, returns the one that appears earlier in the list.  If

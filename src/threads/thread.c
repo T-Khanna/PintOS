@@ -60,8 +60,9 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 
 /* System load average. Estimates number of threads to run over the last
    minute. Used by the mlfq scheduler */
-static fixed_point load_avg = INT_TO_FIXED_POINT(0); /* initialsed to 0 */
-/* constants used when calculating load_avg */
+static fixed_point load_avg = INT_TO_FIXED_POINT(0); /* Initialsed to 0 */
+
+/* Constants used when calculating load_avg */
 static const fixed_point load_avg_factor
     = DIV_FIXED_POINT_INT(INT_TO_FIXED_POINT(59), 60);
 static const fixed_point ready_thread_factor
@@ -157,7 +158,7 @@ thread_tick (int ticks)
     t->recent_cpu = ADD_FIXED_POINT_INT(t->recent_cpu, 1);
   }
 
-  /* update load_avg. */
+  /* Update load_avg. */
   if (thread_mlfqs && ticks % TIMER_FREQ == 0) {
     ASSERT(ready_threads >= 0);
 
@@ -166,13 +167,13 @@ thread_tick (int ticks)
                  MUL_FIXED_POINT_INT(ready_thread_factor, ready_threads)
                );
 
-     /* update the recent_cpu value of every thread */
+     /* Update the recent_cpu value of every thread. */
      thread_foreach(update_recent_cpu, NULL);
   }
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE) {
-    /* udpate the priority of all items in the ready list, then re-sort */
+    /* Update the priority of all items in the ready list, then re-sort. */
     if (thread_mlfqs) {
       struct list_elem *e;
       for (e = list_begin (&ready_list); e != list_end (&ready_list);
@@ -186,7 +187,7 @@ thread_tick (int ticks)
   }
 }
 
-/* update recent_cpu for a single thread. Second argument allows this function
+/* Update recent_cpu for a single thread. Second argument allows this function
    to be used over a list. */
 void update_recent_cpu(struct thread *t, void *aux UNUSED) {
   const fixed_point twice_load_avg = MUL_FIXED_POINT_INT(load_avg, 2);
@@ -431,7 +432,7 @@ thread_set_priority (int new_priority)
   if (!thread_mlfqs) {
     thread_current ()->priority = new_priority;
     thread_update_effective_priority(thread_current());
-    //disable interrupts when we check priorities and maybe yield.
+    /* Disable interrupts when we check priorities and maybe yield. */
     enum intr_level old_level = intr_disable();
     yield_if_higher_priority_ready();
     intr_set_level(old_level);
@@ -442,10 +443,10 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void)
 {
-  thread_update_effective_priority(thread_current());
   return thread_current()->effective_priority;
 }
 
+/* Returns the maximum priority amongst the two priority values. */
 int priority_max(int p1, int p2) {
   return (p1 > p2) ? p1 : p2;
 }
@@ -462,22 +463,26 @@ thread_update_effective_priority (struct thread *t)
     int waiter_priority = PRI_MIN;
 
     struct list_elem *e;
-    for (e = list_begin(&t->locks_held); e != list_end(&t->locks_held); e = list_next(e)) {
-      if (!list_empty(&list_entry(e, struct lock, lock_elem)->semaphore.waiters)) {
+    for (e = list_begin(&t->locks_held);
+         e != list_end(&t->locks_held);
+         e = list_next(e)) {
+      struct list lock_waiters = list_entry(
+          e, struct lock, lock_elem)->semaphore.waiters;
+      if (!list_empty(&lock_waiters)) {
         /* Gets the priority of the first thread in a waiters list */
         int head_priority = list_entry(
-                list_front(&list_entry(e, struct lock, lock_elem)->semaphore.waiters),
-                struct thread,
-                elem)->effective_priority;
+                list_front(&lock_waiters), struct thread, elem)
+                ->effective_priority;
         waiter_priority = priority_max(waiter_priority, head_priority);
       }
     }
+
     t->effective_priority = priority_max(t->effective_priority, waiter_priority);
   }
   /* Recursive call to the function to update the priority for nested
    * and chained donations. */
   if (t->lock_to_acquire != NULL) {
-      thread_update_effective_priority(t->lock_to_acquire->holder);
+    thread_update_effective_priority(t->lock_to_acquire->holder);
   }
   /* Re-sorts the ready_list */
   list_sort(&ready_list, higher_priority, NULL);
@@ -488,7 +493,7 @@ void
 thread_set_nice (int nice)
 {
   ASSERT(thread_mlfqs);
-  // limit the desired nice to be between the minimum and maximum allowed nice.
+  /* Limit the desired nice to be between the minimum and maximum allowed nice. */
   int limited_nice = nice > NICE_MAX ? NICE_MAX :
                      nice < NICE_MIN ? NICE_MIN :
                      nice;
@@ -497,7 +502,7 @@ thread_set_nice (int nice)
   update_priority(thread_current(), NULL);
 
   enum intr_level old_level = intr_disable();
-  /* interrupts must be disabled when we check if we need to yield. */
+  /* Interrupts must be disabled when we check if we need to yield. */
   yield_if_higher_priority_ready();
   intr_set_level(old_level);
 }
@@ -515,7 +520,7 @@ void update_priority(struct thread * t, void* aux UNUSED) {
   ASSERT(thread_mlfqs);
   int new_priority = INT_TO_FIXED_POINT(PRI_MAX - t->nice * NICE_FACTOR)
                      - DIV_FIXED_POINT_INT(t->recent_cpu, RECENT_CPU_FACTOR);
-  //limit the new priority to be at least the minimum priority, PRI_MIN.
+  /* Limit the new priority to be at least the minimum priority, PRI_MIN. */
   t->priority = new_priority < PRI_MIN ? PRI_MIN : new_priority;
 }
 
@@ -770,11 +775,12 @@ yield_if_higher_priority_ready(void)
     return;
   }
 
-  //get the highest priority ready thread (ready list sorted by priority)
+  /* Get the highest priority ready thread (ready list sorted by priority) */
   struct thread* highest_priority_thread
       = list_entry(list_begin(&ready_list), struct thread, elem);
   ASSERT(highest_priority_thread->status == THREAD_READY);
-  if (highest_priority_thread->effective_priority > thread_current()->effective_priority) {
+  if (highest_priority_thread->effective_priority >
+      thread_current()->effective_priority) {
     thread_yield();
   }
 }
