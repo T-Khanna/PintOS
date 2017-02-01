@@ -31,6 +31,16 @@ Tanmay Khanna tk915@ic.ac.uk
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+In thread.h, added following members to 'struct thread':
+
+  int effective_priority;       - Effective Priority of the thread.
+  struct list locks_held;       - List of currently held locks.
+  struct lock *lock_to_acquire; - Lock currently acquired by another thread.
+
+In synch.h, added the following member to 'struct lock':
+
+  struct list_elem lock_elem; - Shared with locks_held in thread.
+
 >> A2: (10 marks) 
 >> Explain the data structure used to track priority donation.
 >> Give a diagram that illustrates a nested donation in your structure.
