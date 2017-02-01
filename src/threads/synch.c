@@ -69,13 +69,25 @@ sema_down (struct semaphore *sema)
   ASSERT (sema != NULL);
   ASSERT (!intr_context ());
 
+
+    //printf("THE CURRENT THREAD DOWNING THE SEMAPHORE IS");
   old_level = intr_disable ();
+
   while (sema->value == 0) 
     {
+      //printf("THE THREAD %s IS NOW PUT TO SLEEP, GOODNIGHT\n", thread_current()->name);
+      //printf("THE SEMA VALUE IS %d\n", sema->value);
+      
       list_insert_ordered(&sema->waiters, &thread_current()->elem,
                           higher_priority, NULL);
+      if (thread_current()->lock_to_acquire != NULL) {
+          //printf("THE LOCK IS CURRENTLY HELD BY %s YOU BEANBAG\n", thread_current()->lock_to_acquire->holder->name);
+      thread_update_effective_priority(thread_current()->lock_to_acquire->holder);
+      }
+      //printf("Now the number of elements in the list is %d\n", list_size(&sema->waiters));
       thread_block ();
     }
+  //printf("THE SEMA VALUE IS: %d\n", sema->value);
   sema->value--;
   intr_set_level (old_level);
 }
@@ -118,9 +130,11 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
+  if (!list_empty (&sema->waiters)) {
+    list_sort(&sema->waiters, higher_priority, NULL);
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
+  }
   sema->value++;
   if (!intr_context()) {
     yield_if_higher_priority_ready();
@@ -203,9 +217,27 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
+//printf("The current thread is %s\n", thread_current()->name);
+  thread_current()->lock_to_acquire = lock;
+//  if (lock->holder != NULL) {
+//      printf("The current thread is %s\n", thread_current()->name);
+//    thread_update_effective_p(lock->holder, thread_current()->effective_priority);    
+//  }
+ //
+  //msg("THE CURRENT THREAD IS: %s\n", thread_current()->name);
+  //
+  //thread_current()->lock_to_acquire = lock;
   sema_down (&lock->semaphore);
+
   lock->holder = thread_current ();
+  //printf("THREAD %s HAS ACQUIRED THE LOCK %p\n", lock->holder->name, lock);
+  lock->holder->lock_to_acquire = NULL;
+  list_push_back(&lock->holder->locks_held, &lock->lock_elem);
+  thread_update_effective_priority(lock->holder);
+
+  //printf("THE OLD HOLDER IS %s\n", t);
+  //printf("THE CURRENT LOCK HOLDER IS: %s\n", lock->holder->name);
+  
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -238,7 +270,40 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+//if (!list_empty(&lock->semaphore.waiters)) {
+//
+ /*
+  thread_withdraw_priority(&lock->semaphore.waiters, lock->holder);
+ 
+  //struct list *list = &lock->semaphore.waiters;
+  //struct thread *holder = lock->holder;
+ struct list_elem *e;
+  for (e = list_begin (&lock->semaphore.waiters); e != list_end (&lock->semaphore.waiters); e = list_next(e)) {
+     //printf("THE THREAD %s IS IN THE WAITERS LIST\n", list_entry(e, struct thread, donation_elem)->name);
+     // printf("BUBU\n");
+      struct thread *t = list_entry(e, struct thread, elem);
 
+      struct list_elem *e2;
+     for (e2 = list_begin(&lock->holder->priority_donations); e2 != list_end(&lock->holder->priority_donations);
+              e2 = list_next(e2)) {
+         struct thread *t2 = list_entry(e2, struct thread, donation_elem);
+          if (t == t2) {
+              list_remove(e2);
+              //asm volatile("":::"memory");
+          }
+      }
+  }
+ //thread_update_effective_priority(holder);
+ 
+*/
+  //printf("BUBU\n");
+  //
+  
+  //thread_update_effective_priority(lock->holder);
+  //
+  //
+  list_remove(&lock->lock_elem);
+  thread_update_effective_priority(thread_current());
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }

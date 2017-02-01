@@ -95,6 +95,8 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
 
     int priority;                       /* Priority. */
+    int effective_priority;             /* Effective Priority */
+
     int nice;                           /* Nice value for the BSD Scheduler. */
     fixed_point recent_cpu;             /* Recent CPU time received. */
 
@@ -105,9 +107,13 @@ struct thread
                                            sleeping threads */
     int wake_up_time;                   /* Tick value at which the thread
                                            should wake up. */
-
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+
+    struct list locks_held;             /* List of currently held locks */
+    struct lock *lock_to_acquire;       /* Lock currently acquired by another
+                                           thread */
+    //struct list_elem held_lock_elem;    /* List element for lock_held */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -156,6 +162,14 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* Donates priority to the provided thread */
+void thread_donate_priority(struct thread *doner, struct thread *donee);
+/* Removes donation_elem from the provided thread, and gets backthe priority */
+void thread_withdraw_priority(struct list *list, struct thread *t);
+
+void thread_update_effective_priority(struct thread *t);
+void thread_update_effective_p(struct thread *t, int p);
 
 /* Function that compares list items by wake up time. */
 bool cmp_wake_time(const struct list_elem *l1, const struct list_elem *l2,
