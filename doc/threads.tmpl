@@ -150,6 +150,10 @@ We update the BSD variables inside of thread_tick, which runs in an interrupt
 context. This is undesirable, as we want to minimise the ammount of time we
 spend inside interrupt handlers to improve responsiveness of the system and
 avoid missing interrupts.
+  We do take some steps to minimise this, such as keeping track of the number of
+threads that are eligible to run in the static int ready_threads in thread.c,
+which avoids traversing every element of the ready list in the interrupt
+handler.
   Minimising the time spent in interrupt handlers gives better responsiveness
 for interactive applications and keeps I/O devices busy.
   However, if we delegate the updating of the bsd variables to happen outside
@@ -169,6 +173,9 @@ threads, as having fresh priority values for blocked threads is not necessary,
 instead we recalculate values for blocked threads when they become unblocked.)
   Our use of macros to do fixed point arithmetic also eliminates a lot of
 runtime overhead compared to if we used function calls.
+  We also kept a number of threads that are ready to run (including the current
+running thread, if it is not the idle thread). This is to avoid counting the
+number of ready threads when we update load_avg in the interrupt handler.
   However, our implementation does a lot of the computation inside of an
 interrupt context, which is a disadvantage for the reasons listed above.
   We considered implementing a lock on the ready list to get around this,
