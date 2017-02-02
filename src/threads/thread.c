@@ -171,9 +171,8 @@ thread_tick (int ticks)
      thread_foreach(update_recent_cpu, NULL);
   }
 
-  /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE) {
-    /* Update the priority of all items in the ready list, then re-sort. */
+  /* Update the priority of all items in the ready list, then re-sort. */
+  if (ticks % TIME_SLICE == 0) {
     if (thread_mlfqs) {
       struct list_elem *e;
       for (e = list_begin (&ready_list); e != list_end (&ready_list);
@@ -182,7 +181,10 @@ thread_tick (int ticks)
       }
       list_sort(&ready_list, higher_priority, NULL);
     }
+  }
 
+  /* Enforce preemption. */
+  if (++thread_ticks >= TIME_SLICE) {
     intr_yield_on_return ();
   }
 }
