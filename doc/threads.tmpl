@@ -11,6 +11,7 @@
 Alessandro Bonardi ab9515@ic.ac.uk
 Andy Hume ah2814@ic.ac.uk
 Tanmay Khanna tk915@ic.ac.uk
+Thomas Bower tb1215@ic.ac.uk
 
 ---- PRELIMINARIES ----
 
@@ -39,11 +40,13 @@ In thread.h, added following members to 'struct thread':
 
 In synch.h, added the following member to 'struct lock':
 
-  struct list_elem lock_elem; - Shared with locks_held in thread.
+  struct list_elem lock_elem;   - Shared with locks_held in struct thread.
 
 >> A2: (10 marks)
 >> Explain the data structure used to track priority donation.
 >> Give a diagram that illustrates a nested donation in your structure.
+
+TODO
 
 ---- ALGORITHMS ----
 
