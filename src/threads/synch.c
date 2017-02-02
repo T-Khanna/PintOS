@@ -219,15 +219,20 @@ lock_acquire (struct lock *lock)
   /* Sets the lock_to_acquire field to the current lock. This field is checked
    * for the recursive call of thread_update_effective_priority and in
    * sema_down to check the call comes from a thread waiting for a lock. */
-  thread_current()->lock_to_acquire = lock;
-  sema_down (&lock->semaphore);
+  if (!thread_mlfqs) {
+    thread_current()->lock_to_acquire = lock;
+  }
 
+  sema_down (&lock->semaphore);
   lock->holder = thread_current ();
-  /* The value of lock_to_acquire is set to NULL once the thread has
-   * acquired the lock. */
-  lock->holder->lock_to_acquire = NULL;
-  list_push_back(&lock->holder->locks_held, &lock->lock_elem);
-  thread_update_effective_priority(lock->holder);
+
+  if (!thread_mlfqs) {
+    /* The value of lock_to_acquire is set to NULL once the thread has
+     * acquired the lock. */
+    lock->holder->lock_to_acquire = NULL;
+    list_push_back(&lock->holder->locks_held, &lock->lock_elem);
+    thread_update_effective_priority(lock->holder);
+  }
 
 }
 
@@ -262,8 +267,10 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  list_remove(&lock->lock_elem);
-  thread_update_effective_priority(thread_current());
+  if (!thread_mlfqs) {
+    list_remove(&lock->lock_elem);
+    thread_update_effective_priority(thread_current());
+  }
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }

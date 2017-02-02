@@ -455,6 +455,9 @@ int priority_max(int p1, int p2) {
 void
 thread_update_effective_priority (struct thread *t)
 {
+  /* This should not be called for the BSD scheduler. */
+  ASSERT(!thread_mlfqs);
+
   t->effective_priority = t->priority;
 
   /* Loops over each lock in the locks_held list, and queries the head of
@@ -484,10 +487,11 @@ thread_update_effective_priority (struct thread *t)
   if (t->lock_to_acquire != NULL) {
     thread_update_effective_priority(t->lock_to_acquire->holder);
   }
-//  /* Re-sorts the ready_list */
-//  if (!list_empty(&ready_list)) {
-//    list_sort(&ready_list, higher_priority, NULL);
-//  }
+  /* Re-sorts the ready_list by removing and re-inserting the thread. */
+  if (!list_empty(&ready_list) && t->status == THREAD_READY) {
+    list_remove(&t->elem);
+    list_insert_ordered(&ready_list, &t->elem, higher_priority, NULL);
+  }
 }
 
 /* Sets the current thread's nice value to NICE. */
