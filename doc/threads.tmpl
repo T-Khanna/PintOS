@@ -11,6 +11,7 @@
 Alessandro Bonardi ab9515@ic.ac.uk
 Andy Hume ah2814@ic.ac.uk
 Tanmay Khanna tk915@ic.ac.uk
+Thomas Bower tb1215@ic.ac.uk
 
 ---- PRELIMINARIES ----
 
@@ -26,7 +27,7 @@ Tanmay Khanna tk915@ic.ac.uk
 
 ---- DATA STRUCTURES ----
 
->> A1: (5 marks) 
+>> A1: (5 marks)
 >> Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
@@ -39,15 +40,17 @@ In thread.h, added following members to 'struct thread':
 
 In synch.h, added the following member to 'struct lock':
 
-  struct list_elem lock_elem; - Shared with locks_held in thread.
+  struct list_elem lock_elem;   - Shared with locks_held in struct thread.
 
->> A2: (10 marks) 
+>> A2: (10 marks)
 >> Explain the data structure used to track priority donation.
 >> Give a diagram that illustrates a nested donation in your structure.
 
+TODO
+
 ---- ALGORITHMS ----
 
->> A3: (5 marks) 
+>> A3: (5 marks)
 >> How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
@@ -126,7 +129,7 @@ ticks   A   B   C   A   B   C   to run
 32     20  12   0  58  58  59     C
 36     20  12   4  58  58  58     A
 
->> B3: (5 marks) 
+>> B3: (5 marks)
 >> Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behaviour of your scheduler?
@@ -143,11 +146,43 @@ of our scheduler, as shown in our yield_if_higher_priority_ready() function.
 >> How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
 
+We update the BSD variables inside of thread_tick, which runs in an interrupt
+context. This is undesirable, as we want to minimise the ammount of time we
+spend inside interrupt handlers to improve responsiveness of the system and
+avoid missing interrupts.
+  We do take some steps to minimise this, such as keeping track of the number of
+threads that are eligible to run in the static int ready_threads in thread.c,
+which avoids traversing every element of the ready list in the interrupt
+handler.
+  Minimising the time spent in interrupt handlers gives better responsiveness
+for interactive applications and keeps I/O devices busy.
+  However, if we delegate the updating of the bsd variables to happen outside
+of the interrupt handler, we will leave the ready list in an inconsistent state
+(some threads will not have their priority updated based on up to date BSD
+variables).
+
 ---- RATIONALE ----
 
 >> B5: (5 marks)
 >> Briefly critique your design, pointing out advantages and
 >> disadvantages in your design choices.
+
+Our implementation takes some steps to avoid doing unnecessary work.
+  We only recalculate the priority for threads that are ready (rather than all
+threads, as having fresh priority values for blocked threads is not necessary,
+instead we recalculate values for blocked threads when they become unblocked.)
+  Our use of macros to do fixed point arithmetic also eliminates a lot of
+runtime overhead compared to if we used function calls.
+  We also kept a number of threads that are ready to run (including the current
+running thread, if it is not the idle thread). This is to avoid counting the
+number of ready threads when we update load_avg in the interrupt handler.
+  However, our implementation does a lot of the computation inside of an
+interrupt context, which is a disadvantage for the reasons listed above.
+  We considered implementing a lock on the ready list to get around this,
+however we cannot acquire a lock from an interrupt context in thread_tick, and
+if we updated the BSD variables in a separate thread which acquired the lock
+outside of the interrupt, it may not run for a while and the BSD varaibles will
+have outdated values.
 
 >> B6: (5 marks)
 >> The assignment explains arithmetic for fixed-point mathematics in
