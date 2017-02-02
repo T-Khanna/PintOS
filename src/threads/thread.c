@@ -787,8 +787,11 @@ yield_if_higher_priority_ready(void)
   struct thread* highest_priority_thread
       = list_entry(list_begin(&ready_list), struct thread, elem);
   ASSERT(highest_priority_thread->status == THREAD_READY);
-  if (highest_priority_thread->effective_priority >
-      thread_current()->effective_priority) {
+  int curr_priority = thread_mlfqs ? thread_current()->priority
+    : thread_current()->effective_priority;
+  int highest_ready_priority = thread_mlfqs ? highest_priority_thread->priority
+    : highest_priority_thread->effective_priority;
+  if (highest_ready_priority > curr_priority) {
     thread_yield();
   }
 }
