@@ -42,12 +42,6 @@ In synch.h, added the following member to 'struct lock':
 
   struct list_elem lock_elem;   - Shared with locks_held in struct thread.
 
-In sync.c, added the following member to 'struct semaphore_elem':
-
-  struct thread* t              - Keeps track of the thead waiting for that
-                                  semaphore, to calculate the highest priority
-                                  waiting thread when the condition is signalled
-
 >> A2: (10 marks)
 >> Explain the data structure used to track priority donation.
 >> Give a diagram that illustrates a nested donation in your structure.
