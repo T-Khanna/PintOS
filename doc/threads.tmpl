@@ -51,19 +51,51 @@ and that is the main structure used to track priority donation. Whenever a
 thread t1 acquires a lock, the lock gets added to the list; when a new thread t2
 tries to acquire a lock currently held by thread t1, it is added to the list of
 waiters inside the semaphore struct in the lock and the function
-thread_update_effective_priority gets called. This function returns the maximum
-value of the base priority and the donated priority using the locks_held list:
-the effective priorities of each head of the waiters in each lock of the list
-are compared to find a temporary maximum priority, and that one is then compared
-to the base priority and assigned to the actual effective priority.
+thread_update_effective_priority gets called on the holder.
+This function returns the maximum value of the base priority and the donated
+priority using the locks_held list: the effective priorities of each head of the
+waiters in each lock of the list are compared to find a temporary maximum
+priority, and that one is then compared to the base priority and assigned to the
+actual effective priority.
 
-In case of nested priority - where thread t2 holds a lock l2 and tries to
-acquire a lock l1 currently held by t1, thread t3 is waiting for l2 and donates
-its priority to t2 - t2 wants to donate the updated effective priority to t1. To
-deal with this case, if the thread t2 is waiter, a recursive call of the
-function thread_update_effective_priority() is made on the holder t1 of the lock
-thread->lock_to_acquire, which is the lock that the thread t1 wanted to acquire
-but was blocked as it was currently held by t2. [IMAGE]
+In case of nested priority - where thread t2 (with priority 35) holds a lock l2
+and tries to acquire a lock l1 currently held by t1 (with priority 30),
+thread t3 (with priority 40) is blocked on l2 and donates its priority to t2
+(making it's effective priority 40). t2 wants to donate the updated effective
+priority to t1. To deal with this case, a recursive call of the function
+thread_update_effective_priority() is made on the holder of the lock l1
+(which is t1, got from thread->lock_to_acquire->holder). This is the lock that
+the thread t2 wanted to acquire but was blocked as it was currently held by t2.
+After this, the effective priority of t1 is 40 also.
+
+====================================DIAGRAM=====================================
+
+   ╔═══════════════╗      ╔═══════════════╗     ╔═══════════════╗
+   ║┌─────────────┐║      ║┌─────────────┐║     ║┌─────────────┐║
+   ║│             │║      ║│             │║     ║│             │║
+   ║│     t1      │║      ║│     t2      │║     ║│     t3      │║
+┌─▶║│ priority 30 │║   ┌─▶║│ priority 35 │║     ║│ priority 40 │║
+│  ║│             │║   │  ║│             │║     ║│             │║
+│  ║│             │║   │  ║│             │║     ║│             │║
+│  ║└─────────────┘║   │  ║└─────────────┘║     ║└─────────────┘║
+│  ╚═══════════════╝   │  ╚═══════════════╝     ╚═══════════════╝
+│                      │          │                     │
+│       acquire() ─────┼──────────┘                     │
+│          │           │       acquire()────────────────┘
+│          ▼           │          │
+│       ▬▬▬▬▬▬         │          ▼
+│      ▮      ▮        │       ▬▬▬▬▬▬
+│      ▮      ▮        │      ▮      ▮
+│   ┌────────────┐     │      ▮      ▮
+│   │            │     │   ┌────────────┐
+│   │  LOCK L1   │     │   │            │
+│   │            │     │   │  LOCK L2   │
+└───│   HOLDER   │     │   │            │
+    │            │     └───│   HOLDER   │
+    │            │         │            │
+    │            │         │            │
+    └────────────┘         │            │
+                           └────────────┘
 
 ---- ALGORITHMS ----
 
@@ -126,6 +158,7 @@ priority is awoken.
 >> Describe a potential race in thread_set_priority() and explain
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
+
 A potential race in thread_set_priority() would happen when two threads want to
 update their base priority at the same time. Unfortunately, we could not use a
 lock to avoid this case, but only disabling the interrupts: when the base
@@ -139,6 +172,7 @@ could therefore not be used as locks can't be acquired in an interrupt context.
 >> A7: (5 marks)
 >> Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
 Before using this design we were using a list of donors inside every thread
 instead of a list of held locks. This donors list was ordered, so that the
 highest priority could be donated in O(1) time. We then decided to use a list of
