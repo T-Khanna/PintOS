@@ -45,7 +45,8 @@ In synch.h, added the following member to 'struct lock':
 >> A2: (10 marks)
 >> Explain the data structure used to track priority donation.
 >> Give a diagram that illustrates a nested donation in your structure.
-Every thread holds a list of currently held locks locks_held inside the struct
+
+Every thread holds a list of currently held locks (locks_held) inside the struct
 and that is the main structure used to track priority donation. Whenever a
 thread t1 acquires a lock, the lock gets added to the list; when a new thread t2
 tries to acquire a lock currently held by thread t1, it is added to the list of
@@ -59,10 +60,10 @@ to the base priority and assigned to the actual effective priority.
 In case of nested priority - where thread t2 holds a lock l2 and tries to
 acquire a lock l1 currently held by t1, thread t3 is waiting for l2 and donates
 its priority to t2 - t2 wants to donate the updated effective priority to t1. To
-deal with this case, if the thread t2 is waiter, a recursive call of the function
-thread_update_effective_priority() is made on the holder t1 of the lock
-thread->lock_to_acquire, which is the lock that the thread t1 wanted to acquire but
-was blocked as it was currently held by t2. [IMAGE]
+deal with this case, if the thread t2 is waiter, a recursive call of the
+function thread_update_effective_priority() is made on the holder t1 of the lock
+thread->lock_to_acquire, which is the lock that the thread t1 wanted to acquire
+but was blocked as it was currently held by t2. [IMAGE]
 
 ---- ALGORITHMS ----
 
@@ -70,39 +71,54 @@ was blocked as it was currently held by t2. [IMAGE]
 >> How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
+For semaphores, we leave the waiters list unordered so that a thread's priority
+changing (when it receives a donation) does not require re-sorting the waiters
+list of a semaphore it is waiting to down. Instead, when a semaphore gets upped,
+the element of the waiters list with the highest priority is awoken by searching
+the list for this element.
 
+This also covers the case of locks, as locks use a semaphore internally to
+handle waiting threads.
 
-The ready_list list is an ordered list, ordered descending basing on the
-effective_priority. This means that the thread returned by next_thread_to_run is
-the head of that list.
+However, condition variables have one semaphore per thread waiting, so to cover
+this we use essentialy the same method as for semaphores: inserting the
+semaphore_elems into the list unordered when a thread waits on a conditon, and
+when the condition is signalled, searching the waiters list for the thread with
+the highest priority by extracting the struct thread from the semaphore's wait
+list.
 
 >> A4: (5 marks)
 >> Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
-When a thread calls lock_aquire(), if the lock is available the lock is added to the
-locks_held list, otherwise the thread is added to the front of the waiters list of the
-lock and priority donation is triggered in sema_down by calling
-thread_update_effective_priority(). This function, as explained in A2, compares
-the head of each waiters list in each lock; this list is "effectively" ordered:
-when checking for the
-highest effective_priority it is certain that the thread at the front has the
-highest priority among all the elements of the list, as otherwise the thread
-which holds the lock would have run instead because of priority donation from
-another thread in the list. If the donee thread is blocked, i.e. it is a waiter, a
-recursive call is made on the holder of the lock it is waiting for. At the same
-time, it is removed and re-inserted ordered from the waiters list; otherwise, if it
-is a thread in the ready_list, it is removed and re-inserted ordered from the
-ready_list.
+
+When a thread calls lock_aquire(), if the lock is available the lock is added
+to the locks_held list, otherwise the thread is added to the front of the
+waiters list of the lock and priority donation is triggered in sema_down by
+calling thread_update_effective_priority(). This function, as explained in A2,
+compares the head of each waiters list in each lock; this list is "effectively"
+ordered: when checking for the highest effective_priority it is certain that the
+thread at the front has the highest priority among all the elements of the list,
+as otherwise the thread which holds the lock would have run instead because of
+priority donation from another thread in the list. If the donee thread is
+blocked, i.e. it is a waiter, a recursive call is made on the holder of the lock
+it is waiting for. At the same time, it is removed and re-inserted ordered from
+the waiters list; otherwise, if it is a thread in the ready_list, it is removed
+and re-inserted ordered from the ready_list.
 
 >> A5: (5 marks)
 >> Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
-When lock_release() is called, the lock is firstly removed from the locks_held
-list and thread_update_effective_priority is called: now the iteration is
-carried over the updated locks_held list, and the new value of effective_priority
-is computed and [THE RIGHT WORD CAN'T COME TO MIND!] in case of nested donation.
-The function sema_up is then called and the waiting thread with the highest
-priority is removed from the waiters list and added ordered to the ready_list.
+
+When lock_release() is called, the lock is first removed from the locks_held
+list of the holder and thread_update_effective_priority() is called:
+Now we compute the new effective_priority by finding the lock we are holding
+with the highest priority waiter (found from the head of the locks wait list
+-- this is the highest priority waiter because it is the thread that has most
+recently run, which means it has the highest priority).
+This eliminates the need for any recursive calls to update the effective
+priority.
+The function sema_up() is then called and the waiting thread with the highest
+priority is awoken.
 
 ---- SYNCHRONIZATION ----
 
