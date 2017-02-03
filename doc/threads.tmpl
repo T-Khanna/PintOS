@@ -42,6 +42,12 @@ In synch.h, added the following member to 'struct lock':
 
   struct list_elem lock_elem;   - Shared with locks_held in struct thread.
 
+In sync.c, added the following member to 'struct semaphore_elem':
+
+  struct thread* t              - Keeps track of the thead waiting for that
+                                  semaphore, to calculate the highest priority
+                                  waiting thread when the condition is signalled
+
 >> A2: (10 marks)
 >> Explain the data structure used to track priority donation.
 >> Give a diagram that illustrates a nested donation in your structure.
@@ -83,7 +89,7 @@ When a thread calls lock_aquire(), if the lock is available the lock is added to
 locks_held list, otherwise the thread is added to the front of the waiters list of the
 lock and priority donation is triggered in sema_down by calling
 thread_update_effective_priority(). This function, as explained in A2, compares
-the head of each waiters list in each lock; this list is "effectively" ordered: 
+the head of each waiters list in each lock; this list is "effectively" ordered:
 when checking for the
 highest effective_priority it is certain that the thread at the front has the
 highest priority among all the elements of the list, as otherwise the thread
