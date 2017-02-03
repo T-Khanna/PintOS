@@ -58,15 +58,44 @@ waiters in each lock of the list are compared to find a temporary maximum
 priority, and that one is then compared to the base priority and assigned to the
 actual effective priority.
 
-In case of nested priority - where thread t2 (with priority 35) holds a lock l2
-and tries to acquire a lock l1 currently held by t1 (with priority 30),
-thread t3 (with priority 40) is blocked on l2 and donates its priority to t2
-(making it's effective priority 40). t2 wants to donate the updated effective
-priority to t1. To deal with this case, a recursive call of the function
-thread_update_effective_priority() is made on the holder of the lock l1
-(which is t1, got from thread->lock_to_acquire->holder). This is the lock that
-the thread t2 wanted to acquire but was blocked as it was currently held by t2.
-After this, the effective priority of t1 is 40 also.
+Suppose we have three threads t1, t2 and t3 with base priorities 30, 35 and 40
+respectively, as well as two locks l1 (owned by t1) and l2 (owned by t2). To
+illustrate nested priority donation, let's say that t2 tries to acquire l1
+and t3 tries to acquire l2, in that order, as explained by our diagram below.
+Initially, our situation is as follows:
+
+t1: Effective priority = 30
+t2: Effective priority = 35
+t3: Effective priority = 40
+
+When t2 calls lock_acquire() on l1, it's lock_to_acquire member is set to l1
+and then we down the semaphore within in the lock. Because the lock is owned by
+t1, the semaphore value is 0, thus it is put onto the waiters list. Next we
+have to donate the priority of t2 to the holder of l1, so
+thread_update_effective_priority() is called on t1. After the effective priority
+of t1 is updated, we check if t1 has a lock it wants to acquire (for nested
+donation). As it doesn't, the function ends and we have the following situation.
+
+t1: Effective priority = 35
+t2: Effective priority = 35
+t3: Effective priority = 40
+
+The same process happens when we call lock_acquire() on l2 from t3 and we donate
+t3's priority to t2. The situation reaches this point before we check the
+lock_to_acquire member of t2:
+
+t1: Effective priority = 35
+t2: Effective priority = 40
+t3: Effective priority = 40
+
+However, we know that t2's lock_to_acquire member is set to l1. This means that
+we also have to donate the priority to t1. So we call the
+thread_update_effective_priority() function recursively on t1, which carries
+the donation from t3 across to t1. This places us in the final state:
+
+t1: Effective priority = 40
+t2: Effective priority = 40
+t3: Effective priority = 40
 
 ====================================DIAGRAM=====================================
 
@@ -82,20 +111,22 @@ After this, the effective priority of t1 is 40 also.
 │                      │          │                     │
 │       acquire() ─────┼──────────┘                     │
 │          │           │       acquire()────────────────┘
-│          ▼           │          │
-│       ▬▬▬▬▬▬         │          ▼
-│      ▮      ▮        │       ▬▬▬▬▬▬
+│          │           │          │
+│          │(1)        │          │(2)
+│          │           │          │
+│          ▼           │          ▼
+│       ▬▬▬▬▬▬         │       ▬▬▬▬▬▬
 │      ▮      ▮        │      ▮      ▮
-│   ┌────────────┐     │      ▮      ▮
-│   │            │     │   ┌────────────┐
-│   │  LOCK L1   │     │   │            │
-│   │            │     │   │  LOCK L2   │
-└───│   HOLDER   │     │   │            │
-    │            │     └───│   HOLDER   │
+│      ▮      ▮        │      ▮      ▮
+│   ┌────────────┐     │   ┌────────────┐
+│   │            │     │   │            │
+│   │  LOCK L1   │     │   │  LOCK L2   │
+│   │            │     │   │            │
+└───│   HOLDER   │     └───│   HOLDER   │
     │            │         │            │
     │            │         │            │
-    └────────────┘         │            │
-                           └────────────┘
+    │            │         │            │
+    └────────────┘         └────────────┘
 
 ---- ALGORITHMS ----
 
