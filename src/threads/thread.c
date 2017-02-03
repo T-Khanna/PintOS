@@ -487,14 +487,21 @@ thread_update_effective_priority (struct thread *t)
   /* Recursive call to the function to update the priority for nested
    * and chained donations. */
   if (t->lock_to_acquire != NULL) {
+    ASSERT(t->status == THREAD_BLOCKED);
+    ASSERT(!list_empty(&t->lock_to_acquire->semaphore.waiters));    
+    
     thread_update_effective_priority(t->lock_to_acquire->holder);
+    list_remove(&t->elem);
+    list_insert_ordered(&t->lock_to_acquire->semaphore.waiters,
+            &t->elem, higher_priority, NULL);
   }
   /* Re-sorts the ready_list by removing and re-inserting the thread. */
-  if (!list_empty(&ready_list) && t->status == THREAD_READY) {
+  if (t->status == THREAD_READY) {
+    ASSERT(!list_empty(&ready_list));
     list_remove(&t->elem);
     list_insert_ordered(&ready_list, &t->elem, higher_priority, NULL);
   }
-}
+ }
 
 /* Sets the current thread's nice value to NICE. */
 void

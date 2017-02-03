@@ -130,8 +130,8 @@ sema_up (struct semaphore *sema)
      * thread with the highest priority. We use list_remove_min to remove this
      * thread and unblock it.  */
     thread_unblock(list_entry(
-             list_remove_min (&sema->waiters, higher_priority, NULL),
-             struct thread, elem));
+            list_remove_min (&sema->waiters, higher_priority, NULL),
+            struct thread, elem));
   }
   sema->value++;
   if (!intr_context()) {
@@ -231,7 +231,6 @@ lock_acquire (struct lock *lock)
      * acquired the lock. */
     lock->holder->lock_to_acquire = NULL;
     list_push_back(&lock->holder->locks_held, &lock->lock_elem);
-    thread_update_effective_priority(lock->holder);
   }
 
 }
