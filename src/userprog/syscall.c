@@ -21,11 +21,11 @@ static void sys_seek (struct intr_frame *);
 static void sys_tell (struct intr_frame *);
 static void sys_close (struct intr_frame *);
 
-static const void system_calls[] (struct intr_frame *f) = {
+static const void (*system_calls[]) (struct intr_frame *f) = {
   &sys_halt, &sys_exit, &sys_exec, &sys_wait, &sys_create, &sys_remove,
   &sys_open, &sys_filesize, &sys_read, &sys_write, &sys_seek, &sys_tell,
   &sys_close
-}
+};
 
 void
 syscall_init (void) 
