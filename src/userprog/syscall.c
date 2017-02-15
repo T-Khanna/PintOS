@@ -9,6 +9,9 @@
 #include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
+void* get_arg(struct intr_frame *, int arg_num);
+void exit(int status);
+
 
 static void sys_halt (struct intr_frame *);
 static void sys_exit (struct intr_frame *);
@@ -55,14 +58,14 @@ static void sys_halt (struct intr_frame * f UNUSED) {
   shutdown_power_off();
 }
 
-void exit(int exitcode) {
-  thread_current()->return_status = exitcode;
+void exit(int status) {
+  thread_current()->return_status = status;
   thread_exit();
 }
 
 static void sys_exit (struct intr_frame * f) {
-  int exitcode = (int) get_arg(f, 1);
-  exit(exitcode);
+  int status = (int) get_arg(f, 1);
+  exit(status);
 }
 
 static void sys_exec (struct intr_frame * f) {
