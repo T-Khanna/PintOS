@@ -18,53 +18,74 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#define MAX_CMD 3072
+#define WORDSIZE 4
+#define PTRSIZE 4
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static int count_args(char *command);
+static void read_args(char **argv, char **file_name, char *command_);
+static void push_args(struct intr_frame *if_, int argc, char **argv);
+static char* strcpy_stack(char *dst, char *src);
+static void push_word(uint32_t *word, struct intr_frame *if_);
 
-/* Starts a new thread running a user program loaded from
-   FILENAME.  The new thread may be scheduled (and may even exit)
+/* Starts a new thread running a command, with the program name as the first
+   word and any arguments following it.
+   The entire command must be less than 3kB.
+   The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name)
+process_execute (const char *command)
 {
-  char *fn_copy;
+  char *cmd_copy;
   tid_t tid;
 
-  /* Make a copy of FILE_NAME.
+  /* Copy the command into cmd_copy.
      Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  cmd_copy = palloc_get_page (0);
+  if (cmd_copy == NULL)
     return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy (cmd_copy, command, PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (command, PRI_DEFAULT, start_process, cmd_copy);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy);
+    palloc_free_page (cmd_copy);
   return tid;
 }
 
-/* A thread function that loads a user process and starts it
+/* A thread function that loads a user command and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *command_)
 {
-  char *file_name = file_name_;
-  struct intr_frame if_;
-  bool success;
+  /* tokenize command */
+  char *cmd = command_;
+  int argc = count_args(cmd);
+  char *argv[argc];
+  char *file_name;
+  read_args(argv, &file_name, cmd);
 
   /* Initialize interrupt frame and load executable. */
+  struct intr_frame if_;
+  bool success;
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load(file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
+  palloc_free_page (cmd);
   if (!success)
     thread_exit ();
+
+  /* put arguments onto stack */
+  push_args(&if_, argc, argv);
+
+  hex_dump(0, if_.esp, PHYS_BASE - if_.esp, 0);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -74,6 +95,93 @@ start_process (void *file_name_)
      and jump to it. */
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
+}
+
+/* returns the number of arguments in a command (including program name) */
+static int count_args(char* command_) {
+  /* make a local copy of the command to avoid modification */
+  int cmd_size = strlen(command_) + 1;
+  char cmd[cmd_size];
+  strlcpy(cmd, command_, cmd_size);
+
+  int argc = 0;
+  char *token, *save_ptr;
+  for (token = strtok_r(cmd, " ", &save_ptr);
+       token != NULL;
+       token = strtok_r(NULL, " ", &save_ptr))
+       {
+         argc++;
+       }
+
+  return argc;
+}
+
+/* splits the command into space separated tokens, and put them in the array
+ * argv. Also puts the first token into file_name. */
+static void read_args(char **argv, char **file_name, char* cmd) {
+  char *token, *save_ptr;
+  /* read the first argument (the file name) */
+  *file_name = argv[0] = strtok_r(cmd, " ", &save_ptr);
+  /* tokenise the arguments and load into argv */
+  int i = 1;
+  for (
+    token = strtok_r(NULL, " ", &save_ptr);
+    token != NULL;
+    token = strtok_r(NULL, " ", &save_ptr)) {
+      argv[i] = token;
+    }
+}
+
+/* pushes the arguments held in argv onto the stack referenced by if_ */
+static void push_args(struct intr_frame *if_, int argc, char **argv) {
+  uint32_t *arg_starts[argc];
+  int cur_arg;
+
+  /* copy the argument strings onto the stack in reverse order */
+  for (cur_arg = argc - 1; cur_arg >= 0; cur_arg--) {
+    if_->esp = strcpy_stack(argv[cur_arg], if_->esp);
+    arg_starts[cur_arg] = if_->esp;
+  }
+
+  /* decrement the stack pointer until we are word aligned */
+  while ((unsigned)if_->esp % PTRSIZE != 0) {
+    if_->esp--;
+  }
+
+  /* push a null pointer (sentinel) so that argv[argc] == 0 */
+  push_word(NULL, if_);
+
+  /* push pointers to arguments in reverse order */
+  for (cur_arg = argc - 1; cur_arg >= 0; cur_arg--) {
+    push_word(arg_starts[cur_arg], if_);
+  }
+
+  /* push a pointer to the first pointer (argv) */
+  push_word(if_->esp + PTRSIZE, if_);
+
+  /* push the number of arguments (argc) */
+  push_word((uint32_t *)argc, if_);
+
+  /* push a fake return address (0) */
+  push_word((uint32_t *)0, if_);
+}
+
+static void push_word(uint32_t *word, struct intr_frame *if_) {
+  if_->esp -= WORDSIZE;
+  *((uint32_t**)if_->esp) = word;
+}
+
+/* copy a string backwards from src to dst.
+ * Returns the next location "after" the end of the string */
+static char* strcpy_stack(char *dst, char *src) {
+  int i;
+  /* make i point to the end of the string (\0 char) */
+  for (i = 0; src[i] != '\0'; i++);
+  /* copy backwards into dst */
+  for (; i>=0; i--) {
+    *(--dst) = src[i];
+  }
+  return dst;
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
@@ -88,7 +196,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED)
 {
-  return -1;
+  for ( ; ; ); //sad crab never gets to see his children
 }
 
 /* Free the current process's resources. */
