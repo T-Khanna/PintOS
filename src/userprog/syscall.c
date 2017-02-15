@@ -6,6 +6,7 @@
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
+#include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -65,13 +66,16 @@ static void sys_exit (struct intr_frame * f) {
 }
 
 static void sys_exec (struct intr_frame * f) {
+  /*TODO: Need to make sure this is synchronized properly to force the parent
+   *      process to wait until the child process has successfully loaded. */
   const char* cmd_line = (const char*) get_arg(f, 1);
   pid_t pid = process_execute(cmd_line);
   f->eax = pid;
 }
 
 static void sys_wait (struct intr_frame * f) {
-
+  pid_t pid = (pid_t) get_arg(f, 1);
+  f->eax = process_wait(pid);
 }
 
 static void sys_create (struct intr_frame * f) {
@@ -94,13 +98,15 @@ static void sys_read (struct intr_frame * f) {
 
 
 }
+
 static void sys_write (struct intr_frame * f) {
   int fd = (int) get_arg(f, 1);
   const void* buffer = (const void*) get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
   int bytes_written = 0;
   /*TODO: Need to check for invalid pointers (user memory access) and also
-   *      keep track of the number of bytes written to console. */
+   *      keep track of the number of bytes written to console.
+   *NOTE: file_write() may be useful for keeping track of bytes written. */
   f->eax = bytes_written;
 }
 
