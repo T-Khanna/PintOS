@@ -75,28 +75,47 @@ static void sys_exec (struct intr_frame * f) {
 
 static void sys_wait (struct intr_frame * f) {
   pid_t pid = (pid_t) get_arg(f, 1);
+  //TODO?
   f->eax = process_wait(pid);
 }
 
 static void sys_create (struct intr_frame * f) {
-
+  const char* file = (const char*) get_arg(f, 1);
+  unsigned initial_size=  (unsigned) get_arg(f, 2);
+  bool success = true;
+  //TODO
+  f->eax = success;
 }
 
 static void sys_remove (struct intr_frame * f) {
-
+  const char* file = (const char*) get_arg(f, 1);
+  bool success = true;
+  //TODO
+  f->eax = success;
 }
 
 static void sys_open (struct intr_frame * f) {
-
+  const char* file = (const char*) get_arg(f, 1);
+  //NOTE: fd is a file descriptor.
+  int fd = -1;
+  //TODO
+  f->eax = fd;
 }
 
 static void sys_filesize (struct intr_frame * f) {
-
+  int fd = (int) get_arg(f, 1);
+  int file_byte_size = 0;
+  //TODO
+  f->eax = file_byte_size;
 }
 
 static void sys_read (struct intr_frame * f) {
-
-
+  int fd = (int) get_arg(f, 1);
+  void* buffer = get_arg(f, 2);
+  unsigned size = (unsigned) get_arg(f, 3);
+  int bytes_read = 0;
+  //TODO
+  f->eax = bytes_read;
 }
 
 static void sys_write (struct intr_frame * f) {
@@ -111,13 +130,19 @@ static void sys_write (struct intr_frame * f) {
 }
 
 static void sys_seek (struct intr_frame * f) {
-
+  int fd = (int) get_arg(f, 1);
+  unsigned position = (unsigned) get_arg(f, 2);
+  //TODO
 }
 
 static void sys_tell (struct intr_frame * f) {
-
+  int fd = (int) get_arg(f, 1);
+  unsigned position = 0;
+  //TODO
+  f->eax = position;
 }
 
 static void sys_close (struct intr_frame * f) {
-
+  int fd = (int) get_arg(f, 1);
+  //TODO
 }
