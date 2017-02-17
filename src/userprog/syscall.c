@@ -7,11 +7,15 @@
 #include "devices/shutdown.h"
 #include "userprog/process.h"
 #include "filesys/file.h"
+#include "filesys/filesys.h"
 
 static void syscall_handler (struct intr_frame *);
 void* get_arg(struct intr_frame *, int arg_num);
 void exit(int status);
 
+/* Ensures that only one syscall can touch the file system
+ * at a time */
+struct lock filesys_lock;
 
 static void sys_halt (struct intr_frame *);
 static void sys_exit (struct intr_frame *);
@@ -79,25 +83,26 @@ static void sys_exec (struct intr_frame * f) {
 
 static void sys_wait (struct intr_frame * f) {
   pid_t pid = (pid_t) get_arg(f, 1);
-  //TODO?
   f->eax = process_wait(pid);
 }
 
 static void sys_create (struct intr_frame * f) {
   const char* file = (const char*) get_arg(f, 1);
   unsigned initial_size = (unsigned) get_arg(f, 2);
-  bool success = false;
   
-  success = filesys_create(file, initial_size);
+  lock_acquire(&filesys_lock);
+  bool success = filesys_create(file, initial_size);
+  lock_release(&filesys_lock);
 
   f->eax = success;
 }
 
 static void sys_remove (struct intr_frame * f) {
   const char* file = (const char*) get_arg(f, 1);
-  bool success = false;
   
-  success = filesys_remove(file);
+  lock_acquire(&filesys_lock);
+  bool success = filesys_remove(file);
+  lock_release(&filesys_lock);
 
   f->eax = success;
 }
