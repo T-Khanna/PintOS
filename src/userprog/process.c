@@ -77,15 +77,16 @@ start_process (void *command_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load(file_name, &if_.eip, &if_.esp);
 
+  push_args(&if_, argc, argv);
+
   /* If load failed, quit. */
   palloc_free_page (cmd);
   if (!success)
     thread_exit ();
 
   /* put arguments onto stack */
-  push_args(&if_, argc, argv);
 
-  hex_dump(0, if_.esp, PHYS_BASE - if_.esp, 0);
+  hex_dump(0, if_.esp, PHYS_BASE - if_.esp, 1);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -129,6 +130,7 @@ static void read_args(char **argv, char **file_name, char* cmd) {
     token != NULL;
     token = strtok_r(NULL, " ", &save_ptr)) {
       argv[i] = token;
+      i++;
     }
 }
 
@@ -164,6 +166,7 @@ static void push_args(struct intr_frame *if_, int argc, char **argv) {
 
   /* push a fake return address (0) */
   push_word((uint32_t *)0, if_);
+
 }
 
 static void push_word(uint32_t *word, struct intr_frame *if_) {
@@ -173,7 +176,7 @@ static void push_word(uint32_t *word, struct intr_frame *if_) {
 
 /* copy a string backwards from src to dst.
  * Returns the next location "after" the end of the string */
-static char* strcpy_stack(char *dst, char *src) {
+static char* strcpy_stack(char *src, char *dst) {
   int i;
   /* make i point to the end of the string (\0 char) */
   for (i = 0; src[i] != '\0'; i++);
@@ -545,7 +548,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }
