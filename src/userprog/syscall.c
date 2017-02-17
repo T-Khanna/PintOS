@@ -111,7 +111,7 @@ static void sys_open (struct intr_frame * f) {
   const char* file = (const char*) get_arg(f, 1);
   int fd = -1; // File descriptor. -1 if the file could not be opened.
   
-  struct file* file = filesys_open(const char *name);
+  struct file* file = filesys_open(name);
 
   if (file != NULL) {
     // How am I supposed to know which fd to generate?
