@@ -159,7 +159,7 @@ static void push_args(struct intr_frame *if_, int argc, char **argv) {
   }
 
   /* push a pointer to the first pointer (argv) */
-  push_word(if_->esp + PTRSIZE, if_);
+  push_word(if_->esp, if_);
 
   /* push the number of arguments (argc) */
   push_word((uint32_t *)argc, if_);
