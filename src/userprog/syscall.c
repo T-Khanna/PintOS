@@ -64,6 +64,7 @@ void exit(int status) {
 }
 
 static void sys_exit (struct intr_frame * f) {
+  // This may not be entirely finished. TODO
   int status = (int) get_arg(f, 1);
   exit(status);
 }
@@ -84,31 +85,42 @@ static void sys_wait (struct intr_frame * f) {
 
 static void sys_create (struct intr_frame * f) {
   const char* file = (const char*) get_arg(f, 1);
-  unsigned initial_size=  (unsigned) get_arg(f, 2);
-  bool success = true;
-  //TODO
+  unsigned initial_size = (unsigned) get_arg(f, 2);
+  bool success = false;
+  
+  success = filesys_create(file, initial_size);
+
   f->eax = success;
 }
 
 static void sys_remove (struct intr_frame * f) {
   const char* file = (const char*) get_arg(f, 1);
-  bool success = true;
-  //TODO
+  bool success = false;
+  
+  success = filesys_remove(file);
+
   f->eax = success;
 }
 
 static void sys_open (struct intr_frame * f) {
   const char* file = (const char*) get_arg(f, 1);
-  //NOTE: fd is a file descriptor.
-  int fd = -1;
-  //TODO
+  int fd = -1; // File descriptor. -1 if the file could not be opened.
+  
+  struct file* file = filesys_open(const char *name);
+
+  if (file != NULL) {
+    // How am I supposed to know which fd to generate?
+  } 
+
   f->eax = fd;
 }
 
 static void sys_filesize (struct intr_frame * f) {
   int fd = (int) get_arg(f, 1);
   int file_byte_size = 0;
-  //TODO
+  
+  // TODO
+
   f->eax = file_byte_size;
 }
 
