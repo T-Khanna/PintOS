@@ -108,7 +108,7 @@ static void sys_remove (struct intr_frame * f) {
 }
 
 static void sys_open (struct intr_frame * f) {
-  const char* file = (const char*) get_arg(f, 1);
+  const char* name = (const char*) get_arg(f, 1);
   int fd = -1; // File descriptor. -1 if the file could not be opened.
   
   struct file* file = filesys_open(name);
