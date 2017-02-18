@@ -19,6 +19,7 @@
 #include "threads/vaddr.h"
 
 #define MAX_CMD 3072
+#define MAX_ARGS 200
 #define WORDSIZE 4
 #define PTRSIZE 4
 
@@ -32,7 +33,7 @@ static void push_word(uint32_t *word, struct intr_frame *if_);
 
 /* Starts a new thread running a command, with the program name as the first
    word and any arguments following it.
-   The entire command must be less than 3kB.
+   The entire command must be less than 3kB, and have less than 200 arguments.
    The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
@@ -47,7 +48,7 @@ process_execute (const char *command)
   cmd_copy = palloc_get_page (0);
   if (cmd_copy == NULL)
     return TID_ERROR;
-  strlcpy (cmd_copy, command, PGSIZE);
+  strlcpy(cmd_copy, command, PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (command, PRI_DEFAULT, start_process, cmd_copy);
@@ -67,10 +68,14 @@ start_process (void *command_)
   char *argv[argc];
   char *file_name;
   read_args(argv, &file_name, cmd);
+  printf("ARGS: \n");
+  for (int i = 0; i < argc; i++) {
+    printf("ARGUMENT %d: \"%s\"\n", i, argv[i]);
+  }
 
   /* Initialize interrupt frame and load executable. */
   struct intr_frame if_;
-  bool success;
+  bool success = argc <= MAX_ARGS; /* ensure < 200 arguments */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
@@ -85,7 +90,7 @@ start_process (void *command_)
   /* put arguments onto stack */
   push_args(&if_, argc, argv);
 
-  hex_dump(0, if_.esp, PHYS_BASE - if_.esp, 0);
+  hex_dump(0, if_.esp, PHYS_BASE - if_.esp, 1);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -129,6 +134,7 @@ static void read_args(char **argv, char **file_name, char* cmd) {
     token != NULL;
     token = strtok_r(NULL, " ", &save_ptr)) {
       argv[i] = token;
+      i++;
     }
 }
 
@@ -143,10 +149,8 @@ static void push_args(struct intr_frame *if_, int argc, char **argv) {
     arg_starts[cur_arg] = if_->esp;
   }
 
-  /* decrement the stack pointer until we are word aligned */
-  while ((unsigned)if_->esp % PTRSIZE != 0) {
-    if_->esp--;
-  }
+  /* word align the stack pointer. */
+  if_->esp -= (uint32_t)if_->esp % WORDSIZE;
 
   /* push a null pointer (sentinel) so that argv[argc] == 0 */
   push_word(NULL, if_);
@@ -157,9 +161,10 @@ static void push_args(struct intr_frame *if_, int argc, char **argv) {
   }
 
   /* push a pointer to the first pointer (argv) */
-  push_word(if_->esp + PTRSIZE, if_);
+  push_word(if_->esp, if_);
 
-  /* push the number of arguments (argc) */
+  /* push the number of arguments (argc).
+   * cast argc to a uint32_t* because push_word works with those (hacky)*/
   push_word((uint32_t *)argc, if_);
 
   /* push a fake return address (0) */
@@ -172,8 +177,9 @@ static void push_word(uint32_t *word, struct intr_frame *if_) {
 }
 
 /* copy a string backwards from src to dst.
- * Returns the next location "after" the end of the string */
-static char* strcpy_stack(char *dst, char *src) {
+ * Returns the next free location on the stack after the end of the string */
+static char* strcpy_stack(char *src, char *dst) {
+  return dst;
   int i;
   /* make i point to the end of the string (\0 char) */
   for (i = 0; src[i] != '\0'; i++);
@@ -545,7 +551,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }
