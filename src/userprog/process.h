@@ -11,8 +11,11 @@ void process_exit (void);
 void process_activate (void);
 
 struct process {
-  int fd;                             /* File descriptor for process */
+  pid_t pid;                          /* Process identifier. */
+  int fd;                             /* File descriptor for process. */
   int return_status;                  /* Return status of the process. */
+  struct list_elem child_elem;        /* Used by the process to keep track
+                                         of its child processes. */
 };
 
 #endif /* userprog/process.h */
