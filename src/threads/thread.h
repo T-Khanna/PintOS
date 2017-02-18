@@ -113,12 +113,12 @@ struct thread
     struct list locks_held;             /* List of currently held locks */
     struct lock *lock_to_acquire;       /* Lock currently acquired by another
                                            thread */
-    //struct list_elem held_lock_elem;    /* List element for lock_held */
-
+    
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                   /* Page directory. */
-    struct process* process_info;                      /* */
+    uint32_t *pagedir;                  /* Page directory */
+    struct list descriptors;            /* List of all file descriptors */
+    int return_status;                  /* Return status of the process */
 #endif
 
     /* Owned by thread.c. */

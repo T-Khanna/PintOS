@@ -10,6 +10,7 @@ struct descriptor
   {
     int id;                     /* The id relating to the descriptor */
     struct file *file;          /* The file we're talking about */
+    struct list_elem elem;      /* List elem for placing in descriptor list */
   };
 
 #endif /* filesys/descriptor.h */
