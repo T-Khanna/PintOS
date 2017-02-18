@@ -47,10 +47,10 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f)
 {
-  int32_t syscall_number = (int32_t) f->esp;
-  system_calls[syscall_number](f);
-  // printf ("system call!\n");
-  // thread_exit ();
+  //int32_t syscall_number = (int32_t) f->esp;
+  //system_calls[syscall_number](f);
+  printf ("system call!\n");
+  thread_exit ();
 }
 
 void* get_arg(struct intr_frame* f, int arg_num) {

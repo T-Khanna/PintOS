@@ -82,13 +82,13 @@ start_process (void *command_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load(file_name, &if_.eip, &if_.esp);
 
+  /* put arguments onto stack */
+  push_args(&if_, argc, argv);
+
   /* If load failed, quit. */
   palloc_free_page (cmd);
   if (!success)
     thread_exit ();
-
-  /* put arguments onto stack */
-  push_args(&if_, argc, argv);
 
   hex_dump(0, if_.esp, PHYS_BASE - if_.esp, 1);
 
