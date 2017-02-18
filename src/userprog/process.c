@@ -179,7 +179,6 @@ static void push_word(uint32_t *word, struct intr_frame *if_) {
 /* copy a string backwards from src to dst.
  * Returns the next free location on the stack after the end of the string */
 static char* strcpy_stack(char *src, char *dst) {
-  return dst;
   int i;
   /* make i point to the end of the string (\0 char) */
   for (i = 0; src[i] != '\0'; i++);
