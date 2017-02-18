@@ -31,6 +31,11 @@ static void sys_seek (struct intr_frame *);
 static void sys_tell (struct intr_frame *);
 static void sys_close (struct intr_frame *);
 
+/* contiguous number of system calls implemented, starting from 0 (HALT) */
+#define IMPLEMENTED_SYSCALLS 12
+
+/* function pointer table for system call handers.
+ * indexed by their syscall number. */
 static void (*system_calls[]) (struct intr_frame *) = {
   &sys_halt, &sys_exit, &sys_exec, &sys_wait, &sys_create, &sys_remove,
   &sys_open, &sys_filesize, &sys_read, &sys_write, &sys_seek, &sys_tell,
@@ -49,10 +54,12 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f)
 {
-  int32_t syscall_number = (int32_t) f->esp;
+  int32_t syscall_number = *(int32_t *) f->esp;
+  //kill thread if the system call number is bad.
+  if (syscall_number < 0 || syscall_number > IMPLEMENTED_SYSCALLS) {
+    thread_exit();
+  }
   system_calls[syscall_number](f);
-  // printf ("system call!\n");
-  // thread_exit ();
 }
 
 void* get_arg(struct intr_frame* f, int arg_num) {
