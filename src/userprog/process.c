@@ -68,10 +68,6 @@ start_process (void *command_)
   char *argv[argc];
   char *file_name;
   read_args(argv, &file_name, cmd);
-  printf("ARGS: \n");
-  for (int i = 0; i < argc; i++) {
-    printf("ARGUMENT %d: \"%s\"\n", i, argv[i]);
-  }
 
   /* Initialize interrupt frame and load executable. */
   struct intr_frame if_;
@@ -89,8 +85,6 @@ start_process (void *command_)
   palloc_free_page (cmd);
   if (!success)
     thread_exit ();
-
-  hex_dump(0, if_.esp, PHYS_BASE - if_.esp, 1);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

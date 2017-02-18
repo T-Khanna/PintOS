@@ -1,6 +1,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <kernel/console.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "devices/shutdown.h"
@@ -63,7 +64,7 @@ syscall_handler (struct intr_frame *f)
 }
 
 void* get_arg(struct intr_frame* f, int arg_num) {
-  return f->esp + arg_num;
+  return  *((int32_t *) f->esp + arg_num);
 }
 
 
@@ -157,10 +158,15 @@ static void sys_write (struct intr_frame * f) {
   int fd = (int) get_arg(f, 1);
   const void* buffer = (const void*) get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
+
   int bytes_written = 0;
   /*TODO: Need to check for invalid pointers (user memory access) and also
    *      keep track of the number of bytes written to console.
    *NOTE: file_write() may be useful for keeping track of bytes written. */
+  if (fd == 1) {
+    //TODO: check these pointers!!! (unsafe)
+    putbuf(buffer, size);
+  }
   f->eax = bytes_written;
 }
 
