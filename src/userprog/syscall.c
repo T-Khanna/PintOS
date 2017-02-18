@@ -1,7 +1,6 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
-#include <user/syscall.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "devices/shutdown.h"
@@ -60,11 +59,13 @@ void* get_arg(struct intr_frame* f, int arg_num) {
 
 static void sys_halt (struct intr_frame * f UNUSED) {
   shutdown_power_off();
+  NOT_REACHED();
 }
 
 void exit(int status) {
-  thread_current()->return_status = status;
+  thread_current()->process_info->return_status = status;
   thread_exit();
+  NOT_REACHED();
 }
 
 static void sys_exit (struct intr_frame * f) {
@@ -89,7 +90,7 @@ static void sys_wait (struct intr_frame * f) {
 static void sys_create (struct intr_frame * f) {
   const char* file = (const char*) get_arg(f, 1);
   unsigned initial_size = (unsigned) get_arg(f, 2);
-  
+
   lock_acquire(&filesys_lock);
   bool success = filesys_create(file, initial_size);
   lock_release(&filesys_lock);
@@ -99,7 +100,7 @@ static void sys_create (struct intr_frame * f) {
 
 static void sys_remove (struct intr_frame * f) {
   const char* file = (const char*) get_arg(f, 1);
-  
+
   lock_acquire(&filesys_lock);
   bool success = filesys_remove(file);
   lock_release(&filesys_lock);
@@ -110,12 +111,12 @@ static void sys_remove (struct intr_frame * f) {
 static void sys_open (struct intr_frame * f) {
   const char* name = (const char*) get_arg(f, 1);
   int fd = -1; // File descriptor. -1 if the file could not be opened.
-  
+
   struct file* file = filesys_open(name);
 
   if (file != NULL) {
     // How am I supposed to know which fd to generate?
-  } 
+  }
 
   f->eax = fd;
 }
@@ -123,7 +124,7 @@ static void sys_open (struct intr_frame * f) {
 static void sys_filesize (struct intr_frame * f) {
   int fd = (int) get_arg(f, 1);
   int file_byte_size = 0;
-  
+
   // TODO
 
   f->eax = file_byte_size;
