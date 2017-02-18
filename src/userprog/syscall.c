@@ -15,6 +15,7 @@ void exit(int status);
 /* Ensures that only one syscall can touch the file system
  * at a time */
 struct lock filesys_lock;
+static int fd_count = 3; /* 0,1,2 are used for STDIN/OUT/ERR */
 
 static void sys_halt (struct intr_frame *);
 static void sys_exit (struct intr_frame *);
@@ -65,7 +66,7 @@ static void sys_halt (struct intr_frame * f UNUSED) {
 }
 
 void exit(int status) {
-  thread_current()->process_info->return_status = status;
+  thread_current()->return_status = status;
   thread_exit();
   NOT_REACHED();
 }
@@ -114,11 +115,15 @@ static void sys_open (struct intr_frame * f) {
   const char* name = (const char*) get_arg(f, 1);
   int fd = -1; // File descriptor. -1 if the file could not be opened.
 
+  lock_acquire(&filesys_lock);
   struct file* file = filesys_open(name);
-
   if (file != NULL) {
-    // How am I supposed to know which fd to generate?
+    struct descriptor desc;
+    desc.id = fd_count++;
+    desc.file = file;
+    list_push_front (&thread_current()->descriptors, &desc.elem);
   }
+  lock_release(&filesys_lock);
 
   f->eax = fd;
 }
@@ -137,7 +142,7 @@ static void sys_read (struct intr_frame * f) {
   void* buffer = get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
   int bytes_read = 0;
-  //TODO
+  // TODO
   f->eax = bytes_read;
 }
 
