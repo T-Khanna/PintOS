@@ -163,10 +163,21 @@ static void sys_open(struct intr_frame * f)
 static void sys_filesize(struct intr_frame * f)
 {
   int fd = (int) get_arg(f, 1);
-  int file_byte_size = 0;
+  int file_byte_size = -1; // File size. -1 if the file couldn't be opened.
 
-  // TODO
+  lock_acquire(&filesys_lock);
+  // Go through the list and see if this file descriptor exists
+  struct list_elem *e;
+  for (e = list_begin (&thread_current()->descriptors); 
+       e != list_end (&thread_current()->descriptors); 
+       e = list_next (e)) {
+    if (list_entry(e, struct descriptor, elem)->id == fd) {
+      file_byte_size = file_length(list_entry(e, struct descriptor, elem)->file);
+      break;
+    }
+  }
 
+  lock_release(&filesys_lock);
   f->eax = file_byte_size;
 }
 
