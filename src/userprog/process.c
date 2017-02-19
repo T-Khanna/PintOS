@@ -50,8 +50,11 @@ process_execute (const char *command)
     return TID_ERROR;
   strlcpy(cmd_copy, command, PGSIZE);
 
+  char *save_ptr;
+  const char *name = strtok_r(command, " ", &save_ptr);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (command, PRI_DEFAULT, start_process, cmd_copy);
+  tid = thread_create (name, PRI_DEFAULT, start_process, cmd_copy);
   if (tid == TID_ERROR)
     palloc_free_page (cmd_copy);
   return tid;
@@ -193,9 +196,32 @@ static char* strcpy_stack(char *src, char *dst) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED)
+process_wait (tid_t child_tid)
 {
-  for ( ; ; ); //sad crab never gets to see his children
+    struct list_elem *e;
+again:;
+   for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      if (list_entry (e, struct thread, allelem)->tid == child_tid) {
+          goto again;
+      }
+    }
+    return 0;
+}
+
+static struct thread_legacy* get_thread_by_tid(tid_t tid)
+{ 
+  struct list_elem *e;
+  struct list alive_children = thread_current()->alive_children;
+
+  for (e = list_begin (&alive_children); e != list_end (&alive_children);
+       e = list_next (e)) {
+    if (tid == list_entry (e, struct thread, wait_elem)->tid) {
+      return list_entry(e, struct thred, wait_elem);
+    }
+  }
+  return NULL;  
 }
 
 /* Free the current process's resources. */
