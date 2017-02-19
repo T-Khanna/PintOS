@@ -36,7 +36,6 @@ static void sys_close (struct intr_frame *);
 /* contiguous number of system calls implemented, starting from 0 (HALT) */
 #define IMPLEMENTED_SYSCALLS 12
 
-
 /* function pointer table for system call handers.
  * indexed by their syscall number. */
 static void (*system_calls[]) (struct intr_frame *) = {
@@ -171,8 +170,18 @@ static void sys_write (struct intr_frame * f) {
    *      keep track of the number of bytes written to console.
    *NOTE: file_write() may be useful for keeping track of bytes written. */
   if (fd == STDOUT_FILENO) {
-    // TODO: check these pointers!!! (unsafe)
+    // TODO check these pointers!!! (unsafe)
     putbuf(buffer, size);
+    bytes_written = size;
+  } else {
+    lock_acquire(&filesys_lock);
+    
+    struct file *file = find_file(fd);
+    if (file != NULL) {
+      bytes_written = file_write(file, buffer, size);
+    }
+
+    lock_release(&filesys_lock);
   }
   f->eax = bytes_written;
 }
@@ -208,6 +217,10 @@ static void sys_close (struct intr_frame * f) {
   int fd = (int) get_arg(f, 1);
   // TODO
 }
+
+/******************************
+ *****  HELPER FUNCTIONS  *****
+ ******************************/
 
 struct file *find_file (int fd) {
   struct list_elem *e;
