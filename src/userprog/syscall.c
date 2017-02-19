@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include <kernel/console.h>
 #include "threads/interrupt.h"
+#include "lib/stdio.h"
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
@@ -17,7 +18,7 @@ void exit(int status);
 /* Ensures that only one syscall can touch the file system
  * at a time */
 struct lock filesys_lock;
-static int fd_count = 3; /* 0,1,2 are used for STDIN/OUT/ERR */
+static int fd_count = 3; // 0,1,2 are used for STDIN/OUT/ERR
 
 static void sys_halt (struct intr_frame *);
 static void sys_exit (struct intr_frame *);
@@ -50,7 +51,6 @@ void
 syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-
   lock_init(&filesys_lock);
   // thread_exit ();
 }
@@ -72,9 +72,7 @@ void* get_arg(struct intr_frame* f, int arg_num)
   return  *((int32_t *) f->esp + arg_num);
 }
 
-
-static void sys_halt (struct intr_frame * f UNUSED)
-{
+static void sys_halt (struct intr_frame * f UNUSED) {
   shutdown_power_off();
   NOT_REACHED();
 }
@@ -169,18 +167,12 @@ static void sys_filesize(struct intr_frame * f)
 {
   int fd = (int) get_arg(f, 1);
   int file_byte_size = -1; // File size. -1 if the file couldn't be opened.
-
   lock_acquire(&filesys_lock);
+
   // Go through the list and see if this file descriptor exists
-  struct list_elem *e;
-  for (e = list_begin (&thread_current()->descriptors); 
-       e != list_end (&thread_current()->descriptors); 
-       e = list_next (e)) {
-    if (list_entry(e, struct descriptor, elem)->id == fd) {
-      file_byte_size = file_length(list_entry(e, struct descriptor, elem)->file);
-      break;
-    }
-  }
+  struct file *file = find_file(fd);
+  if (file != NULL)
+    file_byte_size = file_length(file);
 
   lock_release(&filesys_lock);
   f->eax = file_byte_size;
@@ -192,7 +184,9 @@ static void sys_read(struct intr_frame * f)
   void* buffer = get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
   int bytes_read = 0;
+  
   // TODO
+
   f->eax = bytes_read;
 }
 
@@ -208,9 +202,19 @@ static void sys_write(struct intr_frame * f)
   /*TODO: Need to check for invalid pointers (user memory access) and also
    *      keep track of the number of bytes written to console.
    *NOTE: file_write() may be useful for keeping track of bytes written. */
-  if (fd == 1) {
-    //TODO: check these pointers!!! (unsafe)
+  if (fd == STDOUT_FILENO) {
+    // TODO check these pointers!!! (unsafe)
     putbuf(buffer, size);
+    bytes_written = size;
+  } else {
+    lock_acquire(&filesys_lock);
+    
+    struct file *file = find_file(fd);
+    if (file != NULL) {
+      bytes_written = file_write(file, buffer, size);
+    }
+
+    lock_release(&filesys_lock);
   }
   f->eax = bytes_written;
 }
@@ -219,21 +223,51 @@ static void sys_seek(struct intr_frame * f)
 {
   int fd = (int) get_arg(f, 1);
   unsigned position = (unsigned) get_arg(f, 2);
-  //TODO
+  lock_acquire(&filesys_lock);
+
+  // If the file descriptor exists, seek to the right position
+  struct file *file = find_file(fd);
+  if (file != NULL)
+    file_seek(file, position);
+
+  lock_release(&filesys_lock);
 }
 
 static void sys_tell(struct intr_frame * f)
 {
   int fd = (int) get_arg(f, 1);
   unsigned position = 0;
-  //TODO
+  
+  lock_acquire(&filesys_lock);
+
+  struct file *file = find_file(fd);
+  if (file != NULL)
+    position = file_tell(file);
+
+  lock_release(&filesys_lock);
   f->eax = position;
 }
 
 static void sys_close(struct intr_frame * f)
 {
   int fd = (int) get_arg(f, 1);
-  //TODO
+  // TODO
+}
+
+/******************************
+ *****  HELPER FUNCTIONS  *****
+ ******************************/
+
+struct file *find_file (int fd) {
+  struct list_elem *e;
+  for (e = list_begin (&thread_current()->descriptors); 
+       e != list_end (&thread_current()->descriptors); 
+       e = list_next (e)) {
+    // If the file descriptors match, return a pointer to that file
+    if (list_entry(e, struct descriptor, elem)->id == fd)
+      return list_entry(e, struct descriptor, elem)->file;
+  }
+  return NULL;
 }
 
 
