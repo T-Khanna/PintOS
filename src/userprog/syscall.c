@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include <kernel/console.h>
 #include "threads/interrupt.h"
+#include "lib/stdio.h"
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
@@ -34,6 +35,7 @@ static void sys_close (struct intr_frame *);
 
 /* contiguous number of system calls implemented, starting from 0 (HALT) */
 #define IMPLEMENTED_SYSCALLS 12
+
 
 /* function pointer table for system call handers.
  * indexed by their syscall number. */
@@ -168,7 +170,7 @@ static void sys_write (struct intr_frame * f) {
   /*TODO: Need to check for invalid pointers (user memory access) and also
    *      keep track of the number of bytes written to console.
    *NOTE: file_write() may be useful for keeping track of bytes written. */
-  if (fd == 1) {
+  if (fd == STDOUT_FILENO) {
     // TODO: check these pointers!!! (unsafe)
     putbuf(buffer, size);
   }
