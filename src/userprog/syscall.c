@@ -89,14 +89,17 @@ static void sys_exit (struct intr_frame * f)
 {
   // This may not be entirely finished. TODO
   int status = (int) get_arg(f, 1);
+  printf("%s: exit(%d)\n", thread_current()->name, status);
   exit(status);
 }
 
 static void sys_exec (struct intr_frame * f)
 {
+    //printf("EXECUTING...\n");
   /*TODO: Need to make sure this is synchronized properly to force the parent
    *      process to wait until the child process has successfully loaded. */
   const char* cmd_line = (const char*) get_arg(f, 1);
+  printf("The argument of the new thread created is %s\n", cmd_line);
   pid_t pid = process_execute(cmd_line);
   f->eax = pid;
 }
@@ -104,6 +107,8 @@ static void sys_exec (struct intr_frame * f)
 static void sys_wait (struct intr_frame * f)
 {
   pid_t pid = (pid_t) get_arg(f, 1);
+  //printf("The current thread name is %s\n", thread_current()->name);
+  //printf("PROCESS WAITING\n");
   f->eax = process_wait(pid);
 }
 
@@ -133,7 +138,7 @@ static void sys_remove(struct intr_frame * f)
 static void sys_open(struct intr_frame * f)
 {
   
-  printf("The address is %p\n", get_arg(f, 1));
+  //printf("The address is %p\n", get_arg(f, 1));
   
   int fd = -1; // File descriptor/ -1 if the file could not be opened.
 

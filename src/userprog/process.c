@@ -198,9 +198,13 @@ static char* strcpy_stack(char *src, char *dst) {
 int
 process_wait (tid_t child_tid)
 {
+
+    struct list *all_list = get_all_list();
     struct list_elem *e;
-again:;
-   for (e = list_begin (&all_list); e != list_end (&all_list);
+
+
+again:
+   for (e = list_begin (all_list); e != list_end (all_list);
        e = list_next (e))
     {
       if (list_entry (e, struct thread, allelem)->tid == child_tid) {
@@ -208,8 +212,22 @@ again:;
       }
     }
     return 0;
+
+//    for (;;);
+ // struct thread* child = get_thread_by_tid(child_tid);
+ // struct thread* cur = thread_current();
+
+ // if (child == NULL || child->parent != cur || child->has_waited) {
+ //   return TID_ERROR;
+ // }
+
+ // sema_down(&child->wait_sema);
+ // child->has_waited = true;
+ // return child->return_status;
+  //for ( ; ; ); //sad crab never gets to see his children
 }
 
+/*
 static struct thread_legacy* get_thread_by_tid(tid_t tid)
 { 
   struct list_elem *e;
@@ -222,7 +240,7 @@ static struct thread_legacy* get_thread_by_tid(tid_t tid)
     }
   }
   return NULL;  
-}
+*/
 
 /* Free the current process's resources. */
 void

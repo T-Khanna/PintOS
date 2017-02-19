@@ -666,6 +666,9 @@ init_thread (struct thread *t, const char *name, int priority)
 
   list_init(&t->locks_held);
   list_init(&t->descriptors);
+  list_init(&t->alive_children);
+  list_init(&t->dead_children);
+  sema_init(&t->wait_sema, 0);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -803,6 +806,12 @@ yield_if_higher_priority_ready(void)
     thread_yield();
   }
 }
+
+struct list* get_all_list(void)
+{
+    return &all_list;
+}
+
 
 /* Returns true if the first list item has a smaller wake up time than the
  * second. */
