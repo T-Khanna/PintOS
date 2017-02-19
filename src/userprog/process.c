@@ -193,9 +193,19 @@ static char* strcpy_stack(char *src, char *dst) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED)
+process_wait (tid_t child_tid)
 {
-  for ( ; ; ); //sad crab never gets to see his children
+  struct thread* child = get_thread_by_tid(child_tid);
+  struct thread* cur = thread_current();
+
+  if (child == NULL || child->parent != cur || child->has_waited) {
+    return TID_ERROR;
+  }
+
+  sema_down(&child->wait_sema);
+  child->has_waited = true;
+  return child->return_status;
+  //for ( ; ; ); //sad crab never gets to see his children
 }
 
 /* Free the current process's resources. */

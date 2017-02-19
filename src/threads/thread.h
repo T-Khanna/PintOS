@@ -119,10 +119,30 @@ struct thread
     uint32_t *pagedir;                  /* Page directory */
     struct list descriptors;            /* List of all file descriptors */
     int return_status;                  /* Return status of the process */
+    struct thread* parent;              /* Pointer to the parent of the
+                                           thread */
+    struct list alive_children;         /* List of child processes created
+                                           by the thread that are alive */
+    struct list dead_children;          /* List of thread_legacies, containing
+                                           important information about dead
+                                           threads */
+    struct list_elem child_elem;        /* List element used by the list of
+                                           children */
+    bool has_waited;                    /* Checks if a process has already
+                                           called wait on this thread */
+    struct semaphore wait_sema;         /* Sempahore used to wait for a
+                                           child process */
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+  };
+
+struct thread_legacy
+  {
+    tid_t tid;                          /* Dead thread identifier */
+    int return_status;                  /* Return status of process */
+    struct list_elem dead_elem;         /* List element for dead threads list */
   };
 
 /* If false (default), use round-robin scheduler.
