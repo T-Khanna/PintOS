@@ -11,6 +11,7 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "threads/malloc.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -95,7 +96,9 @@ start_process (void *command_)
   sema_up(&thread_current()->process_info.exec_sema);
 
   /* put arguments onto stack */
-  push_args(&if_, argc, argv);
+  if (!success) {
+    push_args(&if_, argc, argv);
+  }
 
   /* If load failed, quit. */
   palloc_free_page (cmd);
