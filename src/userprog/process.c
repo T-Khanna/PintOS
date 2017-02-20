@@ -62,6 +62,7 @@ process_execute (const char *command)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process, cmd_copy);
+  free(cmd_copy_2);
   if (tid == TID_ERROR)
     palloc_free_page (cmd_copy);
   return tid;
@@ -86,7 +87,7 @@ start_process (void *command_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load(file_name, &if_.eip, &if_.esp);
+  success |= load(file_name, &if_.eip, &if_.esp);
 
   if (!success) {
     thread_current()->process_info.load_success = false;
