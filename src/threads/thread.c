@@ -252,6 +252,8 @@ thread_create (const char *name, int priority,
   t->process_info.tid = tid;
   t->process_info.return_status = -1;
   t->process_info.has_waited = false;
+  t->process_info.load_success = false;
+  sema_init(&t->process_info.exec_sema, 0);
   sema_init(&t->process_info.wait_sema, 0);
 
   list_push_back(&thread_current()->child_processes, &t->process_info.child_elem);
