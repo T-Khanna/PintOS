@@ -30,6 +30,7 @@ static void read_args(char **argv, char **file_name, char *command_);
 static void push_args(struct intr_frame *if_, int argc, char **argv);
 static char* strcpy_stack(char *dst, char *src);
 static void push_word(uint32_t *word, struct intr_frame *if_);
+static struct process* get_process_by_tid(tid_t tid, struct list* processes);
 
 /* Starts a new thread running a command, with the program name as the first
    word and any arguments following it.
@@ -186,6 +187,25 @@ static char* strcpy_stack(char *src, char *dst) {
   return dst;
 }
 
+static struct process*
+get_process_by_tid(tid_t tid, struct list* processes)
+{
+  struct process* result = NULL;
+  struct list_elem* e;
+  for (e = list_begin(processes);
+       e != list_end(processes);
+       e = list_next(e)) {
+    struct process* pr = list_entry(e, struct process, child_elem);
+    if (pr->tid == tid) {
+      result = pr;
+      break;
+    }
+  }
+  return result;
+}
+
+
+
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
@@ -199,37 +219,37 @@ int
 process_wait (tid_t child_tid)
 {
 
-    struct list *all_list = get_all_list();
-    struct list_elem *e;
+  struct thread* curr = thread_current();
+  struct process* child = get_process_by_tid(child_tid, &curr->child_processes);
+  
+  if (child == NULL || child->has_waited) {
+    return TID_ERROR;
+  }
 
+  child->has_waited = true;
+  sema_down(&child->wait_sema);
+  return child->return_status;
 
-again:
-   for (e = list_begin (all_list); e != list_end (all_list);
-       e = list_next (e))
-    {
-      if (list_entry (e, struct thread, allelem)->tid == child_tid) {
-          goto again;
-      }
-    }
-    return 0;
+//     struct list *all_list = get_all_list();
+//     struct list_elem *e;
+//
+//
+// again:
+//    for (e = list_begin (all_list); e != list_end (all_list);
+//        e = list_next (e))
+//     {
+//       if (list_entry (e, struct thread, allelem)->tid == child_tid) {
+//           goto again;
+//       }
+//     }
+//     return 0;
 
-//    for (;;);
- // struct thread* child = get_thread_by_tid(child_tid);
- // struct thread* cur = thread_current();
-
- // if (child == NULL || child->parent != cur || child->has_waited) {
- //   return TID_ERROR;
- // }
-
- // sema_down(&child->wait_sema);
- // child->has_waited = true;
- // return child->return_status;
   //for ( ; ; ); //sad crab never gets to see his children
 }
 
 /*
 static struct thread_legacy* get_thread_by_tid(tid_t tid)
-{ 
+{
   struct list_elem *e;
   struct list alive_children = thread_current()->alive_children;
 
@@ -239,7 +259,7 @@ static struct thread_legacy* get_thread_by_tid(tid_t tid)
       return list_entry(e, struct thred, wait_elem);
     }
   }
-  return NULL;  
+  return NULL;
 */
 
 /* Free the current process's resources. */
@@ -248,6 +268,8 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+
+  sema_up(&cur->process_info.wait_sema);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

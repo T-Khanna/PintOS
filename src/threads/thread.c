@@ -116,7 +116,8 @@ thread_init (void)
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
-  initial_thread->tid = allocate_tid ();
+  tid_t tid = allocate_tid ();
+  initial_thread->tid = tid;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -246,6 +247,14 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+
+  // Create new process
+  t->process_info.tid = tid;
+  t->process_info.return_status = -1;
+  t->process_info.has_waited = false;
+  sema_init(&t->process_info.wait_sema, 0);
+
+  list_push_back(&thread_current()->child_processes, &t->process_info.child_elem);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack'
@@ -488,8 +497,8 @@ thread_update_effective_priority (struct thread *t)
    * and chained donations. */
   if (t->lock_to_acquire != NULL) {
     ASSERT(t->status == THREAD_BLOCKED);
-    ASSERT(!list_empty(&t->lock_to_acquire->semaphore.waiters));    
-    
+    ASSERT(!list_empty(&t->lock_to_acquire->semaphore.waiters));
+
     thread_update_effective_priority(t->lock_to_acquire->holder);
     list_remove(&t->elem);
     list_insert_ordered(&t->lock_to_acquire->semaphore.waiters,
@@ -666,9 +675,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   list_init(&t->locks_held);
   list_init(&t->descriptors);
-  list_init(&t->alive_children);
-  list_init(&t->dead_children);
-  sema_init(&t->wait_sema, 0);
+  list_init(&t->child_processes);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
