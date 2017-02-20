@@ -7,6 +7,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
 #include "filesys/file.h"
@@ -107,7 +108,8 @@ static void sys_exec (struct intr_frame * f)
 
   tid_t child_tid = process_execute(cmd_line);
 
-  struct process * pr = get_process_by_tid(child_tid, &thread_current()->child_processes);
+  struct process * pr = get_process_by_tid(child_tid, 
+                                           &thread_current()->child_processes);
 
   sema_down(&pr->exec_sema);
 
@@ -132,7 +134,6 @@ static void sys_create (struct intr_frame * f)
     return;
   }
 
-
   lock_acquire(&filesys_lock);
   bool success = filesys_create(file, initial_size);
   lock_release(&filesys_lock);
@@ -148,7 +149,6 @@ static void sys_remove(struct intr_frame * f)
     f->eax = -1;
     return;
   }
-
 
   lock_acquire(&filesys_lock);
   bool success = filesys_remove(file);
@@ -170,8 +170,8 @@ static void sys_open(struct intr_frame * f)
   }
 
   const char* name = (const char*) get_arg(f, 1);
-
   lock_acquire(&filesys_lock);
+
   struct file* file = filesys_open(name);
   if (file != NULL) {
     struct descriptor desc;
@@ -180,8 +180,8 @@ static void sys_open(struct intr_frame * f)
     fd = desc.id;
     list_push_front (&thread_current()->descriptors, &desc.elem);
   }
-  lock_release(&filesys_lock);
 
+  lock_release(&filesys_lock);
   f->eax = fd;
 
 }
@@ -206,15 +206,34 @@ static void sys_read(struct intr_frame * f)
   int fd = (int) get_arg(f, 1);
   void* buffer = get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
-  int bytes_read = 0;
+  int bytes_read = -1; // -1 in case of errors
 
   if (!check_safe_access(buffer, size)) {
     f->eax = bytes_read;
     return;
   }
 
-  // TODO
+  /* if we're reading from the stdin */
+  if (fd == STDIN_FILENO) {
+    /* then fill up the buffer with characters we're reading */
+    int i;
+    char *buf = (char *) buffer;
+    for (i = 0; i < size; i++)
+      buf[i] = input_getc();
 
+    bytes_read = size;
+
+  } else { /* otherwise we're reading from a file instead */
+    lock_acquire(&filesys_lock);
+  
+    struct file *file = find_file(fd);
+    if (file != NULL) {
+      /* so use the predefined function to read the file */
+      bytes_read = file_read(file, buffer, size);
+    }
+  
+    lock_release(&filesys_lock);
+  }  
   f->eax = bytes_read;
 }
 
