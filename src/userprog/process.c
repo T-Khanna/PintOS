@@ -93,7 +93,6 @@ start_process (void *command_)
 
   thread_current()->process_info->load_success = success;
   sema_up(&thread_current()->process_info->exec_sema);
-  sema_up(&thread_current()->process_info->exec_sema);
 
   /* put arguments onto stack */
   if (success) {

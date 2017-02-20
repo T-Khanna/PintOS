@@ -85,7 +85,7 @@ static void sys_halt (struct intr_frame * f UNUSED) {
 }
 
 void exit(int status) {
-  thread_current()->process_info.return_status = status;
+  thread_current()->process_info->return_status = status;
   printf("%s: exit(%d)\n", thread_current()->name, status);  
   thread_exit();
   NOT_REACHED();
@@ -105,9 +105,12 @@ static void sys_exec (struct intr_frame * f)
 
   tid_t child_tid = process_execute(cmd_line);
 
-  struct process * pr = get_process_by_tid(child_tid, &thread_current()->child_processes);
+  if (child_tid < 0) {
+     f->eax = -1;
+     return;
+  }
 
-  sema_down(&pr->exec_sema);
+  struct process * pr = get_process_by_tid(child_tid, &thread_current()->child_processes);
 
   f->eax = (pr->load_success) ? child_tid : -1;
 }
@@ -125,7 +128,7 @@ static void sys_create (struct intr_frame * f)
   const char* file = (const char*) get_arg(f, 1);
   unsigned initial_size = (unsigned) get_arg(f, 2);
 
-  check_pointer_range(file, initial_size);
+  check_pointer(file);
 
   lock_acquire(&filesys_lock);
   bool success = filesys_create(file, initial_size);
