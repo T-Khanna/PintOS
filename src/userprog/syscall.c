@@ -8,6 +8,7 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
 #include "filesys/file.h"
@@ -161,6 +162,7 @@ static void sys_open(struct intr_frame * f)
   check_pointer(name); 
 
   lock_acquire(&filesys_lock);
+
   struct file* file = filesys_open(name);
   if (file != NULL) {
     struct descriptor *desc = malloc(sizeof(struct descriptor));
@@ -170,8 +172,8 @@ static void sys_open(struct intr_frame * f)
     fd = desc->id;
     list_push_back(&thread_current()->descriptors, &desc->elem);  
   }
-  lock_release(&filesys_lock);
 
+  lock_release(&filesys_lock);
   f->eax = fd;
 
 }
@@ -197,12 +199,31 @@ static void sys_read(struct intr_frame * f)
   int fd = (int) get_arg(f, 1);
   void* buffer = get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
-  int bytes_read = 0;
+  int bytes_read = -1; // -1 in case of errors
 
   check_pointer_range(buffer, size);
 
-  // TODO
+  /* if we're reading from the stdin */
+  if (fd == STDIN_FILENO) {
+    /* then fill up the buffer with characters we're reading */
+    int i;
+    char *buf = (char *) buffer;
+    for (i = 0; i < size; i++)
+      buf[i] = input_getc();
 
+    bytes_read = size;
+
+  } else { /* otherwise we're reading from a file instead */
+    lock_acquire(&filesys_lock);
+  
+    struct file *file = find_file(fd);
+    if (file != NULL) {
+      /* so use the predefined function to read the file */
+      bytes_read = file_read(file, buffer, size);
+    }
+  
+    lock_release(&filesys_lock);
+  }  
   f->eax = bytes_read;
 }
 
