@@ -6,6 +6,9 @@
 #include <stdint.h>
 #include "threads/synch.h"
 #include "threads/fixed-point.h"
+#ifdef USERPROG
+#include "userprog/process.h"
+#endif
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -19,6 +22,7 @@ enum thread_status
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
+
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
 /* Thread priorities. */
@@ -113,36 +117,19 @@ struct thread
     struct list locks_held;             /* List of currently held locks */
     struct lock *lock_to_acquire;       /* Lock currently acquired by another
                                            thread */
-    
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory */
     struct list descriptors;            /* List of all file descriptors */
-    int return_status;                  /* Return status of the process */
-    struct thread* parent;              /* Pointer to the parent of the
-                                           thread */
-    struct list alive_children;         /* List of child processes created
-                                           by the thread that are alive */
-    struct list dead_children;          /* List of thread_legacies, containing
-                                           important information about dead
-                                           threads */
-    struct list_elem child_elem;        /* List element used by the list of
-                                           children */
-    bool has_waited;                    /* Checks if a process has already
-                                           called wait on this thread */
-    struct semaphore wait_sema;         /* Sempahore used to wait for a
-                                           child process */
+    struct process process_info;        /* Information about the process this
+                                           thread executes. */
+    struct list child_processes;        /* List of child processes created
+                                           by the thread. */
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-  };
-
-struct thread_legacy
-  {
-    tid_t tid;                          /* Dead thread identifier */
-    int return_status;                  /* Return status of process */
-    struct list_elem dead_elem;         /* List element for dead threads list */
   };
 
 /* If false (default), use round-robin scheduler.

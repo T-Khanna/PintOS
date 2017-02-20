@@ -11,6 +11,7 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "threads/malloc.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -20,6 +21,7 @@
 
 #define MAX_CMD 3072
 #define MAX_ARGS 200
+#define MAX_FILE_NAME 16
 #define WORDSIZE 4
 #define PTRSIZE 4
 
@@ -41,17 +43,19 @@ tid_t
 process_execute (const char *command)
 {
   char *cmd_copy;
+  char cmd_copy_2[MAX_FILE_NAME + 1];
   tid_t tid;
 
   /* Copy the command into cmd_copy.
      Otherwise there's a race between the caller and load(). */
   cmd_copy = palloc_get_page (0);
-  if (cmd_copy == NULL)
+  if (cmd_copy == NULL) {
     return TID_ERROR;
+  }
   strlcpy(cmd_copy, command, PGSIZE);
-
+  strlcpy(cmd_copy_2, command, sizeof cmd_copy_2);
   char *save_ptr;
-  const char *name = strtok_r(command, " ", &save_ptr);
+  char *name = strtok_r(cmd_copy_2, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process, cmd_copy);
@@ -79,10 +83,17 @@ start_process (void *command_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load(file_name, &if_.eip, &if_.esp);
+  success |= load(file_name, &if_.eip, &if_.esp);
+
+  if (!success) {
+    thread_current()->process_info.load_success = false;
+  }
+  sema_up(&thread_current()->process_info.exec_sema);
 
   /* put arguments onto stack */
-  push_args(&if_, argc, argv);
+  if (success) {
+    push_args(&if_, argc, argv);
+  }
 
   /* If load failed, quit. */
   palloc_free_page (cmd);
@@ -186,6 +197,25 @@ static char* strcpy_stack(char *src, char *dst) {
   return dst;
 }
 
+struct process*
+get_process_by_tid(tid_t tid, struct list* processes)
+{
+  struct process* result = NULL;
+  struct list_elem* e;
+  for (e = list_begin(processes);
+       e != list_end(processes);
+       e = list_next(e)) {
+    struct process* pr = list_entry(e, struct process, child_elem);
+    if (pr->tid == tid) {
+      result = pr;
+      break;
+    }
+  }
+  return result;
+}
+
+
+
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
@@ -199,48 +229,18 @@ int
 process_wait (tid_t child_tid)
 {
 
-    struct list *all_list = get_all_list();
-    struct list_elem *e;
+  struct thread* curr = thread_current();
+  struct process* child = get_process_by_tid(child_tid, &curr->child_processes);
 
+  if (child == NULL || child->has_waited) {
+    return TID_ERROR;
+  }
 
-again:
-   for (e = list_begin (all_list); e != list_end (all_list);
-       e = list_next (e))
-    {
-      if (list_entry (e, struct thread, allelem)->tid == child_tid) {
-          goto again;
-      }
-    }
-    return 0;
-
-//    for (;;);
- // struct thread* child = get_thread_by_tid(child_tid);
- // struct thread* cur = thread_current();
-
- // if (child == NULL || child->parent != cur || child->has_waited) {
- //   return TID_ERROR;
- // }
-
- // sema_down(&child->wait_sema);
- // child->has_waited = true;
- // return child->return_status;
-  //for ( ; ; ); //sad crab never gets to see his children
+  child->has_waited = true;
+  sema_down(&child->wait_sema);
+  return child->return_status;
 }
 
-/*
-static struct thread_legacy* get_thread_by_tid(tid_t tid)
-{ 
-  struct list_elem *e;
-  struct list alive_children = thread_current()->alive_children;
-
-  for (e = list_begin (&alive_children); e != list_end (&alive_children);
-       e = list_next (e)) {
-    if (tid == list_entry (e, struct thread, wait_elem)->tid) {
-      return list_entry(e, struct thred, wait_elem);
-    }
-  }
-  return NULL;  
-*/
 
 /* Free the current process's resources. */
 void
@@ -248,6 +248,8 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+if (cur->tid > 2)
+  sema_up(&cur->process_info.wait_sema);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
