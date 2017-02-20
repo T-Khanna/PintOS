@@ -41,17 +41,24 @@ tid_t
 process_execute (const char *command)
 {
   char *cmd_copy;
+  char *cmd_copy_2;
   tid_t tid;
 
   /* Copy the command into cmd_copy.
      Otherwise there's a race between the caller and load(). */
   cmd_copy = palloc_get_page (0);
-  if (cmd_copy == NULL)
+  if (cmd_copy == NULL) {
     return TID_ERROR;
+  }
   strlcpy(cmd_copy, command, PGSIZE);
-
+  /* second copy of command to get the name from */
+  cmd_copy_2 = palloc_get_page(0);
+  if (cmd_copy_2 == NULL) {
+    return TID_ERROR;
+  }
+  strlcpy(cmd_copy_2, command, PGSIZE);
   char *save_ptr;
-  const char *name = strtok_r(command, " ", &save_ptr);
+  char *name = strtok_r(cmd_copy_2, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process, cmd_copy);
@@ -242,7 +249,7 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
+if (cur->tid > 2)
   sema_up(&cur->process_info.wait_sema);
 
   /* Destroy the current process's page directory and switch back

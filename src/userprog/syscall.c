@@ -61,7 +61,9 @@ syscall_handler (struct intr_frame *f)
 {
   //hex_dump(0, f->esp, 0xc0000000 - (int) f->esp, 1);
   if (!check_safe_access((int32_t *) f->esp, 1)) {
-      printf("WRONG ADDRESSSS ARGHHHHH\n");
+      //printf("WRONG ADDRESSSS ARGHHHHH\n");
+      exit(-1);
+      
       return;
   }
   int32_t syscall_number = *(int32_t *) f->esp;
@@ -74,7 +76,7 @@ syscall_handler (struct intr_frame *f)
 
 void* get_arg(struct intr_frame* f, int arg_num)
 {
-  return  *((int32_t *) f->esp + arg_num);
+  return  (void *) *((int32_t *) f->esp + arg_num);
 }
 
 static void sys_halt (struct intr_frame * f UNUSED) {
@@ -103,7 +105,9 @@ static void sys_exec (struct intr_frame * f)
   tid_t child_tid = process_execute(cmd_line);
 
   if (child_tid < 0) {
-     return -1;
+    f->eax = -1;
+    exit(-1);
+    return;
   }
 
   struct process * pr = get_process_by_tid(child_tid, &thread_current()->child_processes);
@@ -111,7 +115,8 @@ static void sys_exec (struct intr_frame * f)
   sema_down(&pr->exec_sema);
 
   if (!pr->load_success) {
-    return -1;
+    f->eax = -1;
+    return;
   }
 
   f->eax = child_tid;
@@ -310,7 +315,7 @@ static bool check_safe_access(void *ptr, unsigned size)
 {
   /* Checks that the pointer is not null, not pointing to kernel memory
    * and is mapped */
-  for (int i = 0; i < size; i++) {
+  for (unsigned i = 0; i < size; i++) {
     if ((char *) ptr + i == NULL || !is_user_vaddr((char *) ptr + i)) {
       return false;
     }
