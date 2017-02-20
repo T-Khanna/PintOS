@@ -6,6 +6,7 @@
 #include "lib/stdio.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
@@ -62,13 +63,10 @@ static void
 syscall_handler (struct intr_frame *f)
 {
   //hex_dump(0, f->esp, 0xc0000000 - (int) f->esp, 1);
-  if (!check_safe_access((int32_t *) f->esp, 1)) {
-      //printf("WRONG ADDRESSSS ARGHHHHH\n");
-      exit(-1);
-      
-      return;
-  }
+  
+  check_pointer(f->esp);     
   int32_t syscall_number = *(int32_t *) f->esp;
+  //printf("new syscall with code %d\n", syscall_number);
   //kill thread if the system call number is bad.
   if (syscall_number < 0 || syscall_number > IMPLEMENTED_SYSCALLS) {
     thread_exit();
@@ -88,6 +86,7 @@ static void sys_halt (struct intr_frame * f UNUSED) {
 
 void exit(int status) {
   thread_current()->process_info.return_status = status;
+  printf("%s: exit(%d)\n", thread_current()->name, status);  
   thread_exit();
   NOT_REACHED();
 }
@@ -96,7 +95,6 @@ static void sys_exit (struct intr_frame * f)
 {
   // This may not be entirely finished. TODO
   int status = (int) get_arg(f, 1);
-  printf("%s: exit(%d)\n", thread_current()->name, status);
   exit(status);
 }
 
@@ -127,11 +125,7 @@ static void sys_create (struct intr_frame * f)
   const char* file = (const char*) get_arg(f, 1);
   unsigned initial_size = (unsigned) get_arg(f, 2);
 
-  if (!check_safe_access(file, initial_size)) {
-    f->eax = -1;
-    return;
-  }
-
+  check_pointer_range(file, initial_size);
 
   lock_acquire(&filesys_lock);
   bool success = filesys_create(file, initial_size);
@@ -144,11 +138,7 @@ static void sys_remove(struct intr_frame * f)
 {
   const char* file = (const char*) get_arg(f, 1);
 
-  if (!check_safe_access(file, 1)) {
-    f->eax = -1;
-    return;
-  }
-
+  check_pointer(file);
 
   lock_acquire(&filesys_lock);
   bool success = filesys_remove(file);
@@ -164,21 +154,18 @@ static void sys_open(struct intr_frame * f)
 
   int fd = -1; // File descriptor/ -1 if the file could not be opened.
 
-  if (!check_safe_access(get_arg(f, 1), 1)) {
-    f->eax = fd;
-    return;
-  }
-
   const char* name = (const char*) get_arg(f, 1);
+  check_pointer(name); 
 
   lock_acquire(&filesys_lock);
   struct file* file = filesys_open(name);
   if (file != NULL) {
-    struct descriptor desc;
-    desc.id = fd_count++;
-    desc.file = file;
-    fd = desc.id;
-    list_push_front (&thread_current()->descriptors, &desc.elem);
+    struct descriptor *desc = malloc(sizeof(struct descriptor));
+    // TODO Check Malloc
+    desc->id = fd_count++;
+    desc->file = file;
+    fd = desc->id;
+    list_push_back(&thread_current()->descriptors, &desc->elem);  
   }
   lock_release(&filesys_lock);
 
@@ -203,15 +190,13 @@ static void sys_filesize(struct intr_frame * f)
 
 static void sys_read(struct intr_frame * f)
 {
+    //printf("NOW IT'S READ TIME!\n");
   int fd = (int) get_arg(f, 1);
   void* buffer = get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
   int bytes_read = 0;
 
-  if (!check_safe_access(buffer, size)) {
-    f->eax = bytes_read;
-    return;
-  }
+  check_pointer_range(buffer, size);
 
   // TODO
 
@@ -228,10 +213,8 @@ static void sys_write(struct intr_frame * f)
 
   /* Need to check for invalid pointers (user memory access) and also
    * keep track of the number of bytes written to console. */
-  if (!check_safe_access(buffer, size)) {
-    f->eax = bytes_written;
-    return;
-  }
+ 
+  check_pointer_range(buffer, size);
 
   /* NOTE: file_write() may be useful for keeping track of bytes written. */
   if (fd == STDOUT_FILENO) {
@@ -304,6 +287,8 @@ struct file *find_file (int fd) {
 static void check_pointer(void *ptr)
 {
   if (!check_safe_access(ptr, 1)) {
+
+      //printf("AHJSHAIKJSHBCYTKEVWUYT\n");
     exit(-1);
   }
 }
@@ -321,13 +306,21 @@ static bool check_safe_access(void *ptr, unsigned size)
 {
   /* Checks that the pointer is not null, not pointing to kernel memory
    * and is mapped */
+
+    //if (ptr == NULL) {
+    //    printf("BUBU\n");
+    //}
   for (unsigned i = 0; i < size; i++) {
+      //printf("%s\n", (char *) ptr);
     if ((char *) ptr + i == NULL || !is_user_vaddr((char *) ptr + i)) {
       return false;
     }
     if (pagedir_get_page(thread_current()->pagedir,
                 (char *) ptr + i) == NULL) {
         return false;
+    } else {
+        //printf("Address mapped: %x\n", *(int32_t*) pagedir_get_page(thread_current()->pagedir,
+        //            (char *) ptr + 1));
     }
   }
   return true;
