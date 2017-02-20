@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "devices/timer.h"
+#include "threads/malloc.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -248,15 +249,16 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
-  // Create new process
-  t->process_info.tid = tid;
-  t->process_info.return_status = -1;
-  t->process_info.has_waited = false;
-  t->process_info.load_success = false;
-  sema_init(&t->process_info.exec_sema, 0);
-  sema_init(&t->process_info.wait_sema, 0);
-
-  list_push_back(&thread_current()->child_processes, &t->process_info.child_elem);
+  struct process *proc = (struct process *) malloc(sizeof(struct process));
+  proc->tid = tid;
+  proc->return_status = -1;
+  proc->has_waited = false;
+  proc->load_success = false;
+  proc->thread_dead = false;
+  sema_init(&proc->exec_sema, 0);
+  sema_init(&proc->wait_sema, 0);
+  t->process_info = proc;
+  list_push_back(&thread_current()->child_processes, &proc->child_elem);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack'
@@ -380,7 +382,6 @@ void
 thread_exit (void)
 {
   ASSERT (!intr_context ());
-
 #ifdef USERPROG
   process_exit ();
 #endif
