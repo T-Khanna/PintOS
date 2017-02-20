@@ -60,6 +60,10 @@ static void
 syscall_handler (struct intr_frame *f)
 {
   //hex_dump(0, f->esp, 0xc0000000 - (int) f->esp, 1);
+  if (!check_safe_access((int32_t *) f->esp, 1)) {
+      printf("WRONG ADDRESSSS ARGHHHHH\n");
+      return;
+  }
   int32_t syscall_number = *(int32_t *) f->esp;
   //kill thread if the system call number is bad.
   if (syscall_number < 0 || syscall_number > IMPLEMENTED_SYSCALLS) {
@@ -98,7 +102,7 @@ static void sys_exec (struct intr_frame * f)
   /*TODO: Need to make sure this is synchronized properly to force the parent
    *      process to wait until the child process has successfully loaded. */
   const char* cmd_line = (const char*) get_arg(f, 1);
-  printf("The argument of the new thread created is %s\n", cmd_line);
+  //printf("The argument of the new thread created is %s\n", cmd_line);
   tid_t tid = process_execute(cmd_line);
   f->eax = tid;
 }
@@ -116,6 +120,12 @@ static void sys_create (struct intr_frame * f)
   const char* file = (const char*) get_arg(f, 1);
   unsigned initial_size = (unsigned) get_arg(f, 2);
 
+  if (!check_safe_access(file, initial_size)) {
+    f->eax = -1;
+    return;
+  }
+
+
   lock_acquire(&filesys_lock);
   bool success = filesys_create(file, initial_size);
   lock_release(&filesys_lock);
@@ -126,6 +136,12 @@ static void sys_create (struct intr_frame * f)
 static void sys_remove(struct intr_frame * f)
 {
   const char* file = (const char*) get_arg(f, 1);
+
+  if (!check_safe_access(file, 1)) {
+    f->eax = -1;
+    return;
+  }
+
 
   lock_acquire(&filesys_lock);
   bool success = filesys_remove(file);
@@ -142,7 +158,6 @@ static void sys_open(struct intr_frame * f)
   int fd = -1; // File descriptor/ -1 if the file could not be opened.
 
   if (!check_safe_access(get_arg(f, 1), 1)) {
-    printf("The file cannot be open\n");
     f->eax = fd;
     return;
   }
@@ -185,6 +200,11 @@ static void sys_read(struct intr_frame * f)
   void* buffer = get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
   int bytes_read = 0;
+
+  if (!check_safe_access(buffer, size)) {
+    f->eax = bytes_read;
+    return;
+  }
 
   // TODO
 
