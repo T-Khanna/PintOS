@@ -196,15 +196,18 @@ static void sys_write(struct intr_frame * f)
   int fd = (int) get_arg(f, 1);
   const void* buffer = (const void*) get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
-    //printf("I AM INSIDE WRITE! THE SIZE IS %d\n", size);
-
 
   int bytes_written = 0;
-  /*TODO: Need to check for invalid pointers (user memory access) and also
-   *      keep track of the number of bytes written to console.
-   *NOTE: file_write() may be useful for keeping track of bytes written. */
+
+  /* Need to check for invalid pointers (user memory access) and also
+   * keep track of the number of bytes written to console. */
+  if (!check_safe_access(buffer, size)) {
+    f->eax = bytes_written;
+    return;
+  }
+
+  /* NOTE: file_write() may be useful for keeping track of bytes written. */
   if (fd == STDOUT_FILENO) {
-    // TODO check these pointers!!! (unsafe)
     putbuf(buffer, size);
     bytes_written = size;
   } else {
@@ -272,11 +275,11 @@ struct file *find_file (int fd) {
 }
 
 
-
+/* TODO Add process kill */
 static bool check_safe_access(void *ptr, unsigned size)
 {
   /* Checks that the pointer is not null, not pointing to kernel memory
-   * and mapped */
+   * and is mapped */
   for (int i = 0; i < size; i++) {
     if ((char *) ptr + i == NULL || !is_user_addr((char *) ptr + i)) {
       return false;
