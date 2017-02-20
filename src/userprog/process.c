@@ -30,7 +30,6 @@ static void read_args(char **argv, char **file_name, char *command_);
 static void push_args(struct intr_frame *if_, int argc, char **argv);
 static char* strcpy_stack(char *dst, char *src);
 static void push_word(uint32_t *word, struct intr_frame *if_);
-static struct process* get_process_by_tid(tid_t tid, struct list* processes);
 
 /* Starts a new thread running a command, with the program name as the first
    word and any arguments following it.
@@ -81,6 +80,11 @@ start_process (void *command_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load(file_name, &if_.eip, &if_.esp);
+
+  if (!success) {
+    thread_current()->process_info.load_success = false;
+  }
+  sema_up(&thread_current()->process_info.exec_sema);
 
   /* put arguments onto stack */
   push_args(&if_, argc, argv);
@@ -187,7 +191,7 @@ static char* strcpy_stack(char *src, char *dst) {
   return dst;
 }
 
-static struct process*
+struct process*
 get_process_by_tid(tid_t tid, struct list* processes)
 {
   struct process* result = NULL;
@@ -221,7 +225,7 @@ process_wait (tid_t child_tid)
 
   struct thread* curr = thread_current();
   struct process* child = get_process_by_tid(child_tid, &curr->child_processes);
-  
+
   if (child == NULL || child->has_waited) {
     return TID_ERROR;
   }
@@ -229,38 +233,8 @@ process_wait (tid_t child_tid)
   child->has_waited = true;
   sema_down(&child->wait_sema);
   return child->return_status;
-
-//     struct list *all_list = get_all_list();
-//     struct list_elem *e;
-//
-//
-// again:
-//    for (e = list_begin (all_list); e != list_end (all_list);
-//        e = list_next (e))
-//     {
-//       if (list_entry (e, struct thread, allelem)->tid == child_tid) {
-//           goto again;
-//       }
-//     }
-//     return 0;
-
-  //for ( ; ; ); //sad crab never gets to see his children
 }
 
-/*
-static struct thread_legacy* get_thread_by_tid(tid_t tid)
-{
-  struct list_elem *e;
-  struct list alive_children = thread_current()->alive_children;
-
-  for (e = list_begin (&alive_children); e != list_end (&alive_children);
-       e = list_next (e)) {
-    if (tid == list_entry (e, struct thread, wait_elem)->tid) {
-      return list_entry(e, struct thred, wait_elem);
-    }
-  }
-  return NULL;
-*/
 
 /* Free the current process's resources. */
 void

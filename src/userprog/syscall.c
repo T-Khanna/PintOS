@@ -93,13 +93,22 @@ static void sys_exit (struct intr_frame * f)
 
 static void sys_exec (struct intr_frame * f)
 {
-    //printf("EXECUTING...\n");
-  /*TODO: Need to make sure this is synchronized properly to force the parent
-   *      process to wait until the child process has successfully loaded. */
   const char* cmd_line = (const char*) get_arg(f, 1);
-  printf("The argument of the new thread created is %s\n", cmd_line);
-  tid_t tid = process_execute(cmd_line);
-  f->eax = tid;
+  tid_t child_tid = process_execute(cmd_line);
+
+  if (child_tid < 0) {
+     return -1;
+  }
+
+  struct process * pr = get_process_by_tid(child_tid, &thread_current()->child_processes);
+
+  sema_down(&pr->exec_sema);
+
+  if (!pr->load_success) {
+    return -1;
+  }
+
+  f->eax = child_tid;
 }
 
 static void sys_wait (struct intr_frame * f)
