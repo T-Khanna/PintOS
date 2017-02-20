@@ -15,6 +15,7 @@ struct process {
                                          called wait on this thread */
   bool load_success;                  /* Checks if loading an executable was
                                          a success. */
+  bool thread_dead;                   /* True when the thread is dead */
   struct semaphore wait_sema;         /* Sempahore used to wait for a
                                          child process. */
   struct semaphore exec_sema;         /* Semaphore used to synchronise with

@@ -59,9 +59,15 @@ process_execute (const char *command)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process, cmd_copy);
-  if (tid == TID_ERROR)
+  if (tid == TID_ERROR) {
     palloc_free_page (cmd_copy);
-  return tid;
+  }
+
+  struct thread *curr = thread_current();
+  struct process *child = get_process_by_tid(tid, &curr->child_processes);
+  sema_down(&child->exec_sema);
+
+  return child->load_success ? tid : -1;
 }
 
 /* A thread function that loads a user command and starts it
@@ -78,17 +84,16 @@ start_process (void *command_)
 
   /* Initialize interrupt frame and load executable. */
   struct intr_frame if_;
-  bool success = argc <= MAX_ARGS; /* ensure < 200 arguments */
+  bool success = (argc <= MAX_ARGS); /* ensure < 200 arguments */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success |= load(file_name, &if_.eip, &if_.esp);
+  success &= load(file_name, &if_.eip, &if_.esp);
 
-  if (!success) {
-    thread_current()->process_info.load_success = false;
-  }
-  sema_up(&thread_current()->process_info.exec_sema);
+  thread_current()->process_info->load_success = success;
+  sema_up(&thread_current()->process_info->exec_sema);
+  sema_up(&thread_current()->process_info->exec_sema);
 
   /* put arguments onto stack */
   if (success) {
@@ -98,7 +103,7 @@ start_process (void *command_)
   /* If load failed, quit. */
   palloc_free_page (cmd);
   if (!success)
-    thread_exit ();
+    thread_exit();
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -246,10 +251,25 @@ process_wait (tid_t child_tid)
 void
 process_exit (void)
 {
-  struct thread *cur = thread_current ();
+  struct thread *cur = thread_current();
   uint32_t *pd;
-if (cur->tid > 2)
-  sema_up(&cur->process_info.wait_sema);
+
+  if (cur->tid >= 2) {
+    cur->process_info->thread_dead = true;
+
+    //free all of the child processes who's thread is no longer running
+    struct list_elem* e;
+    for (e = list_begin(&cur->child_processes);
+         e != list_end(&cur->child_processes);
+         e = list_next(e)) {
+      struct process* child = list_entry(e, struct process, child_elem);
+      if (child->thread_dead) {
+        //TODO free child here (causes kernel panic ???)
+      }
+    }
+  }
+
+  sema_up(&cur->process_info->wait_sema);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
