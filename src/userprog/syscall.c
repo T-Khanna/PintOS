@@ -5,6 +5,7 @@
 #include "threads/interrupt.h"
 #include "lib/stdio.h"
 #include "threads/thread.h"
+#include "threads/uaddr.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
@@ -274,12 +275,12 @@ struct file *find_file (int fd) {
 
 static bool check_safe_access(void *ptr, unsigned size)
 {
-  /* Checks that the pointer is not null */
-  if (ptr == NULL) {
-    return false;
-  }
-
+  /* Checks that the pointer is not null, not pointing to kernel memory
+   * and mapped */
   for (int i = 0; i < size; i++) {
+    if ((char *) ptr + i == NULL || !is_user_addr((char *) ptr + i)) {
+      return false;
+    }
     if (pagedir_get_page(thread_current()->pagedir,
                 (char *) ptr + i) == NULL) {
         return false;
