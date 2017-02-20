@@ -11,6 +11,7 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "threads/malloc.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -20,6 +21,7 @@
 
 #define MAX_CMD 3072
 #define MAX_ARGS 200
+#define MAX_FILE_NAME 16
 #define WORDSIZE 4
 #define PTRSIZE 4
 
@@ -41,7 +43,7 @@ tid_t
 process_execute (const char *command)
 {
   char *cmd_copy;
-  char *cmd_copy_2;
+  char cmd_copy_2[MAX_FILE_NAME + 1];
   tid_t tid;
 
   /* Copy the command into cmd_copy.
@@ -51,18 +53,12 @@ process_execute (const char *command)
     return TID_ERROR;
   }
   strlcpy(cmd_copy, command, PGSIZE);
-  /* second copy of command to get the name from */
-  cmd_copy_2 = palloc_get_page(0);
-  if (cmd_copy_2 == NULL) {
-    return TID_ERROR;
-  }
-  strlcpy(cmd_copy_2, command, PGSIZE);
+  strlcpy(cmd_copy_2, command, sizeof cmd_copy_2);
   char *save_ptr;
   char *name = strtok_r(cmd_copy_2, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process, cmd_copy);
-  free(cmd_copy_2);
   if (tid == TID_ERROR)
     palloc_free_page (cmd_copy);
   return tid;
@@ -95,7 +91,9 @@ start_process (void *command_)
   sema_up(&thread_current()->process_info.exec_sema);
 
   /* put arguments onto stack */
-  push_args(&if_, argc, argv);
+  if (success) {
+    push_args(&if_, argc, argv);
+  }
 
   /* If load failed, quit. */
   palloc_free_page (cmd);
