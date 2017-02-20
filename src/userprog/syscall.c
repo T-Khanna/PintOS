@@ -265,7 +265,28 @@ static void sys_tell(struct intr_frame * f)
 static void sys_close(struct intr_frame * f)
 {
   int fd = (int) get_arg(f, 1);
-  // TODO
+  
+  lock_acquire(&filesys_lock);
+
+  struct list_elem *e;
+  for (e = list_begin (&thread_current()->descriptors); 
+       e != list_end (&thread_current()->descriptors); 
+       e = list_next (e)) {
+
+    struct descriptor *desc = list_entry(e, struct descriptor, elem);
+    
+    /* If the file descriptors match, let's close the file and
+     * remove it from the list of file descriptors */
+    if (desc->id == fd) {
+      file_close(desc->file);
+      list_remove(e);
+      break;
+    }
+
+  }
+
+  lock_release(&filesys_lock);
+
 }
 
 /******************************
