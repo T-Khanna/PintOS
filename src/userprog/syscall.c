@@ -5,7 +5,7 @@
 #include "threads/interrupt.h"
 #include "lib/stdio.h"
 #include "threads/thread.h"
-#include "threads/uaddr.h"
+#include "threads/vaddr.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
@@ -281,7 +281,7 @@ static bool check_safe_access(void *ptr, unsigned size)
   /* Checks that the pointer is not null, not pointing to kernel memory
    * and is mapped */
   for (int i = 0; i < size; i++) {
-    if ((char *) ptr + i == NULL || !is_user_addr((char *) ptr + i)) {
+    if ((char *) ptr + i == NULL || !is_user_vaddr((char *) ptr + i)) {
       return false;
     }
     if (pagedir_get_page(thread_current()->pagedir,
