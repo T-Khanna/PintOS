@@ -36,6 +36,8 @@ static void sys_tell (struct intr_frame *);
 static void sys_close (struct intr_frame *);
 
 static bool check_safe_access(void *ptr, unsigned size);
+static void check_pointer(void *ptr);
+static void check_pointer_range(void *ptr, unsigned size);
 
 /* contiguous number of system calls implemented, starting from 0 (HALT) */
 #define IMPLEMENTED_SYSCALLS 12
@@ -101,25 +103,15 @@ static void sys_exit (struct intr_frame * f)
 static void sys_exec (struct intr_frame * f)
 {
   const char* cmd_line = (const char*) get_arg(f, 1);
+  check_pointer(cmd_line);
 
   tid_t child_tid = process_execute(cmd_line);
-
-  if (child_tid < 0) {
-    f->eax = -1;
-    exit(-1);
-    return;
-  }
 
   struct process * pr = get_process_by_tid(child_tid, &thread_current()->child_processes);
 
   sema_down(&pr->exec_sema);
 
-  if (!pr->load_success) {
-    f->eax = -1;
-    return;
-  }
-
-  f->eax = child_tid;
+  f->eax = (pr->load_success) ? child_tid : -1;
 }
 
 static void sys_wait (struct intr_frame * f)
@@ -309,6 +301,20 @@ struct file *find_file (int fd) {
   return NULL;
 }
 
+static void check_pointer(void *ptr)
+{
+  if (!check_safe_access(ptr, 1)) {
+    exit(-1);
+  }
+}
+
+
+static void check_pointer_range(void *ptr, unsigned size)
+{
+  if (!check_safe_access(ptr, size)) {
+    exit(-1);
+  }
+}
 
 /* TODO Add process kill */
 static bool check_safe_access(void *ptr, unsigned size)
