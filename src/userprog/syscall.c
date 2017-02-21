@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include <kernel/console.h>
 #include "threads/interrupt.h"
@@ -16,7 +17,6 @@
 
 static void syscall_handler (struct intr_frame *);
 void* get_arg(struct intr_frame *, int arg_num);
-void exit(int status);
 
 /* Ensures that only one syscall can touch the file system
  * at a time */
@@ -57,18 +57,14 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&filesys_lock);
-  // thread_exit ();
 }
 
 static void
 syscall_handler (struct intr_frame *f)
 {
-  //hex_dump(0, f->esp, 0xc0000000 - (int) f->esp, 1);
-
   check_pointer(f->esp);
   int32_t syscall_number = *(int32_t *) f->esp;
-  //printf("new syscall with code %d\n", syscall_number);
-  //kill thread if the system call number is bad.
+  /* Kill thread if the system call number is bad. */
   if (syscall_number < 0 || syscall_number > IMPLEMENTED_SYSCALLS) {
     thread_exit();
   }
@@ -77,7 +73,11 @@ syscall_handler (struct intr_frame *f)
 
 void* get_arg(struct intr_frame* f, int arg_num)
 {
-  return  (void *) *((int32_t *) f->esp + arg_num);
+  int32_t* arg_pos = (int32_t *) f->esp + arg_num;
+  if (!is_user_vaddr(arg_pos)) {
+    exit(-1);
+  }
+  return (void *) *(arg_pos);
 }
 
 static void sys_halt (struct intr_frame * f UNUSED) {
@@ -104,16 +104,7 @@ static void sys_exec (struct intr_frame * f)
   const char* cmd_line = (const char*) get_arg(f, 1);
   check_pointer(cmd_line);
 
-  tid_t child_tid = process_execute(cmd_line);
-
-  if (child_tid < 0) {
-     f->eax = -1;
-     return;
-  }
-
-  struct process * pr = get_process_by_tid(child_tid, &thread_current()->child_processes);
-
-  f->eax = (pr->load_success) ? child_tid : -1;
+  f->eax = process_execute(cmd_line);
 }
 
 static void sys_wait (struct intr_frame * f)
@@ -160,6 +151,11 @@ static void sys_open(struct intr_frame * f)
 
   struct file* file = filesys_open(name);
   if (file != NULL) {
+    // If the file is an executable, we don't want to write to it.
+    if (!strcmp(name, thread_current()->name)) {
+      file_deny_write(file);
+    }
+
     struct descriptor *desc = malloc(sizeof(struct descriptor));
     // TODO Check Malloc
     desc->id = fd_count++;
@@ -347,20 +343,13 @@ static bool check_safe_access(void *ptr, unsigned size)
   /* Checks that the pointer is not null, not pointing to kernel memory
    * and is mapped */
 
-    //if (ptr == NULL) {
-    //    printf("BUBU\n");
-    //}
   for (unsigned i = 0; i < size; i++) {
-      //printf("%s\n", (char *) ptr);
     if ((char *) ptr + i == NULL || !is_user_vaddr((char *) ptr + i)) {
       return false;
     }
     if (pagedir_get_page(thread_current()->pagedir,
                 (char *) ptr + i) == NULL) {
-        return false;
-    } else {
-        //printf("Address mapped: %x\n", *(int32_t*) pagedir_get_page(thread_current()->pagedir,
-        //            (char *) ptr + 1));
+      return false;
     }
   }
   return true;
