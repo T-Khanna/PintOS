@@ -150,12 +150,8 @@ static void sys_open(struct intr_frame * f)
   lock_acquire(&filesys_lock);
 
   struct file* file = filesys_open(name);
-  if (file != NULL) {
-    // If the file is an executable, we don't want to write to it.
-    if (!strcmp(name, thread_current()->name)) {
-      file_deny_write(file);
-    }
 
+  if (file != NULL) {
     struct descriptor *desc = malloc(sizeof(struct descriptor));
     // TODO Check Malloc
     desc->id = fd_count++;

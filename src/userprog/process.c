@@ -91,8 +91,9 @@ start_process (void *command_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success &= load(file_name, &if_.eip, &if_.esp);
 
-  thread_current()->process_info->load_success = success;
-  sema_up(&thread_current()->process_info->exec_sema);
+  struct thread* t = thread_current();
+  t->process_info->load_success = success;
+  sema_up(&t->process_info->exec_sema);
 
   /* put arguments onto stack */
   if (success) {
@@ -101,8 +102,9 @@ start_process (void *command_)
 
   /* If load failed, quit. */
   palloc_free_page (cmd);
-  if (!success)
+  if (!success) {
     thread_exit();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -272,6 +274,12 @@ process_exit (void)
     }
   }
 
+  if (cur->process_info->executable != NULL) {
+    file_allow_write(cur->process_info->executable);
+  }
+
+
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -402,6 +410,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done;
     }
+  t->process_info->executable = file;
+  file_deny_write(t->process_info->executable);
+
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -486,7 +497,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  if (!success) {
+    file_close(file);
+  }
+
   return success;
 }
 
