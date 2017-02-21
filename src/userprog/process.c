@@ -1,4 +1,5 @@
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -253,7 +254,7 @@ process_exit (void)
   struct thread *cur = thread_current();
   uint32_t *pd;
 
-  if (cur->tid > 1) {
+  if (cur->tid >= 3) {
     /* free all of the child processes who's thread is no longer running */
     while(!list_empty(&cur->child_processes)) {
       struct process* child = list_entry(list_pop_front(&cur->child_processes),
@@ -270,6 +271,18 @@ process_exit (void)
     if (cur->process_info->parent_dead) {
       free(&cur->process_info);
     }
+    
+    while (!list_empty(&thread_current()->descriptors)) {
+        struct descriptor *d = list_entry(
+                list_pop_front(&thread_current()->descriptors),
+                struct descriptor, elem);
+        file_close(d->file);
+        free(d);
+        //printf("%d left to free\n", --malloc_count);
+        //printf("FREED\n");
+    }
+    
+    
   }
 
   /* Destroy the current process's page directory and switch back
