@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include <kernel/console.h>
 #include "threads/interrupt.h"
@@ -16,7 +17,6 @@
 
 static void syscall_handler (struct intr_frame *);
 void* get_arg(struct intr_frame *, int arg_num);
-void exit(int status);
 
 /* Ensures that only one syscall can touch the file system
  * at a time */
@@ -63,12 +63,9 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f)
 {
-  //hex_dump(0, f->esp, 0xc0000000 - (int) f->esp, 1);
-  
-  check_pointer(f->esp);     
+  check_pointer(f->esp);
   int32_t syscall_number = *(int32_t *) f->esp;
-  //printf("new syscall with code %d\n", syscall_number);
-  //kill thread if the system call number is bad.
+  /* Kill thread if the system call number is bad. */
   if (syscall_number < 0 || syscall_number > IMPLEMENTED_SYSCALLS) {
     thread_exit();
   }
@@ -77,7 +74,11 @@ syscall_handler (struct intr_frame *f)
 
 void* get_arg(struct intr_frame* f, int arg_num)
 {
-  return  (void *) *((int32_t *) f->esp + arg_num);
+  int32_t* arg_pos = (int32_t *) f->esp + arg_num;
+  if (!is_user_vaddr(arg_pos)) {
+    exit(-1);
+  }
+  return (void *) *(arg_pos);
 }
 
 static void sys_halt (struct intr_frame * f UNUSED) {
@@ -87,7 +88,7 @@ static void sys_halt (struct intr_frame * f UNUSED) {
 
 void exit(int status) {
   thread_current()->process_info->return_status = status;
-  printf("%s: exit(%d)\n", thread_current()->name, status);  
+  printf("%s: exit(%d)\n", thread_current()->name, status);
   thread_exit();
   NOT_REACHED();
 }
@@ -150,7 +151,7 @@ static void sys_open(struct intr_frame * f)
   int fd = -1; // File descriptor/ -1 if the file could not be opened.
 
   const char* name = (const char*) get_arg(f, 1);
-  check_pointer(name); 
+  check_pointer(name);
 
   lock_acquire(&filesys_lock);
 
@@ -166,7 +167,7 @@ static void sys_open(struct intr_frame * f)
     desc->id = fd_count++;
     desc->file = file;
     fd = desc->id;
-    list_push_back(&thread_current()->descriptors, &desc->elem);  
+    list_push_back(&thread_current()->descriptors, &desc->elem);
   }
 
   lock_release(&filesys_lock);
@@ -211,15 +212,15 @@ static void sys_read(struct intr_frame * f)
 
   } else { /* otherwise we're reading from a file instead */
     lock_acquire(&filesys_lock);
-  
+
     struct file *file = find_file(fd);
     if (file != NULL) {
       /* so use the predefined function to read the file */
       bytes_read = file_read(file, buffer, size);
     }
-  
+
     lock_release(&filesys_lock);
-  }  
+  }
   f->eax = bytes_read;
 }
 
@@ -233,7 +234,7 @@ static void sys_write(struct intr_frame * f)
 
   /* Need to check for invalid pointers (user memory access) and also
    * keep track of the number of bytes written to console. */
- 
+
   check_pointer_range(buffer, size);
 
   /* NOTE: file_write() may be useful for keeping track of bytes written. */
@@ -285,16 +286,16 @@ static void sys_tell(struct intr_frame * f)
 static void sys_close(struct intr_frame * f)
 {
   int fd = (int) get_arg(f, 1);
-  
+
   lock_acquire(&filesys_lock);
 
   struct list_elem *e;
-  for (e = list_begin (&thread_current()->descriptors); 
-       e != list_end (&thread_current()->descriptors); 
+  for (e = list_begin (&thread_current()->descriptors);
+       e != list_end (&thread_current()->descriptors);
        e = list_next (e)) {
 
     struct descriptor *desc = list_entry(e, struct descriptor, elem);
-    
+
     /* If the file descriptors match, let's close the file and
      * remove it from the list of file descriptors */
     if (desc->id == fd) {
@@ -348,20 +349,13 @@ static bool check_safe_access(void *ptr, unsigned size)
   /* Checks that the pointer is not null, not pointing to kernel memory
    * and is mapped */
 
-    //if (ptr == NULL) {
-    //    printf("BUBU\n");
-    //}
   for (unsigned i = 0; i < size; i++) {
-      //printf("%s\n", (char *) ptr);
     if ((char *) ptr + i == NULL || !is_user_vaddr((char *) ptr + i)) {
       return false;
     }
     if (pagedir_get_page(thread_current()->pagedir,
                 (char *) ptr + i) == NULL) {
-        return false;
-    } else {
-        //printf("Address mapped: %x\n", *(int32_t*) pagedir_get_page(thread_current()->pagedir,
-        //            (char *) ptr + 1));
+      return false;
     }
   }
   return true;
