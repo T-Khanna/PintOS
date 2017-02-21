@@ -104,16 +104,7 @@ static void sys_exec (struct intr_frame * f)
   const char* cmd_line = (const char*) get_arg(f, 1);
   check_pointer(cmd_line);
 
-  tid_t child_tid = process_execute(cmd_line);
-
-  if (child_tid < 0) {
-     f->eax = -1;
-     return;
-  }
-
-  struct process * pr = get_process_by_tid(child_tid, &thread_current()->child_processes);
-
-  f->eax = (pr->load_success) ? child_tid : -1;
+  f->eax = process_execute(cmd_line);
 }
 
 static void sys_wait (struct intr_frame * f)
