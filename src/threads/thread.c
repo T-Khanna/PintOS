@@ -252,6 +252,7 @@ thread_create (const char *name, int priority,
   if (tid > 1) {
     struct process *proc = (struct process *) malloc(sizeof(struct process));
     proc->thread_dead = false;
+    proc->parent_dead = false;
     proc->tid = tid;
     proc->return_status = -1;
     proc->has_waited = false;
