@@ -249,16 +249,19 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
-  struct process *proc = (struct process *) malloc(sizeof(struct process));
-  proc->tid = tid;
-  proc->return_status = -1;
-  proc->has_waited = false;
-  proc->load_success = false;
-  proc->thread_dead = false;
-  sema_init(&proc->exec_sema, 0);
-  sema_init(&proc->wait_sema, 0);
-  t->process_info = proc;
-  list_push_back(&thread_current()->child_processes, &proc->child_elem);
+  if (tid > 1) {
+    struct process *proc = (struct process *) malloc(sizeof(struct process));
+    proc->thread_dead = false;
+    proc->tid = tid;
+    proc->return_status = -1;
+    proc->has_waited = false;
+    proc->load_success = false;
+    sema_init(&proc->exec_sema, 0);
+    sema_init(&proc->wait_sema, 0);
+    struct thread *cur = thread_current();
+    list_push_back(&cur->child_processes, &proc->child_elem);
+    t->process_info = proc;
+  }
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack'

@@ -253,22 +253,24 @@ process_exit (void)
   struct thread *cur = thread_current();
   uint32_t *pd;
 
-  if (cur->tid >= 2) {
-    cur->process_info->thread_dead = true;
-
-    //free all of the child processes who's thread is no longer running
-    struct list_elem* e;
-    for (e = list_begin(&cur->child_processes);
-         e != list_end(&cur->child_processes);
-         e = list_next(e)) {
-      struct process* child = list_entry(e, struct process, child_elem);
+  if (cur->tid > 1) {
+    /* free all of the child processes who's thread is no longer running */
+    while(!list_empty(&cur->child_processes)) {
+      struct process* child = list_entry(list_pop_front(&cur->child_processes),
+                                         struct process, child_elem);
+      child->parent_dead = true;
       if (child->thread_dead) {
-        //TODO free child here (causes kernel panic ???)
+        free(child);
       }
     }
-  }
+    cur->process_info->thread_dead = true;
+    sema_up(&cur->process_info->wait_sema);
 
-  sema_up(&cur->process_info->wait_sema);
+    /* if this thread is orphaned, free it's process struct */
+    if (cur->process_info->parent_dead) {
+      free(&cur->process_info);
+    }
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
