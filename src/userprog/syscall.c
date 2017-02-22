@@ -291,6 +291,7 @@ static void sys_close(struct intr_frame * f)
     if (desc->id == fd) {
       file_close(desc->file);
       list_remove(e);
+      free(desc);
       break;
     }
 
