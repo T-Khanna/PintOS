@@ -20,8 +20,6 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-#define MAX_CMD 3072
-#define MAX_ARGS 200
 #define MAX_FILE_NAME 16
 #define WORDSIZE 4
 
@@ -36,6 +34,8 @@ static void push_word(uint32_t *word, struct intr_frame *if_);
 /* Starts a new thread running a command, with the program name as the first
    word and any arguments following it.
    The entire command must be less than 3kB, and have less than 200 arguments.
+   This function assumes that all of command is in valid memory (checked by the
+   syscall handler).
    The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
@@ -43,10 +43,10 @@ tid_t
 process_execute (const char *command)
 {
   char *cmd_copy;
-  char cmd_copy_2[MAX_FILE_NAME + 1];
-  tid_t tid;
+  char name[MAX_FILE_NAME + 1];
+  size_t cmd_len = strlen(command);
 
-  if (strlen(command) > MAX_CMD) {
+  if (cmd_len > MAX_CMD) {
     return TID_ERROR;
   }
 
@@ -57,14 +57,15 @@ process_execute (const char *command)
     return TID_ERROR;
   }
   strlcpy(cmd_copy, command, MAX_CMD);
-  strlcpy(cmd_copy_2, command, sizeof cmd_copy_2);
+  strlcpy(name, command, sizeof name);
   char *save_ptr;
-  char *name = strtok_r(cmd_copy_2, " ", &save_ptr);
+  char *file_name = strtok_r(name, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (name, PRI_DEFAULT, start_process, cmd_copy);
+  tid_t tid = thread_create(file_name, PRI_DEFAULT, start_process, cmd_copy);
   if (tid == TID_ERROR) {
     palloc_free_page (cmd_copy);
+    return tid;
   }
 
   struct thread *curr = thread_current();
@@ -114,7 +115,7 @@ start_process (void *command_)
     palloc_free_page (cmd);
     t->process->load_success = false;
     sema_up(&t->process->exec_sema);
-    exit(TID_ERROR);
+    process_kill();
   }
 
   /* tokenize command */
@@ -138,10 +139,11 @@ start_process (void *command_)
     push_args(&if_, argc, argv);
   }
 
-  /* If load failed, quit. */
   palloc_free_page (cmd);
+
+  /* If load failed, quit. */
   if (!success) {
-    thread_exit();
+    process_kill();
   }
 
   /* Start the user process by simulating a return from an
@@ -283,6 +285,12 @@ process_wait (tid_t child_tid)
   return child->return_status;
 }
 
+/* Kill the current process */
+void
+process_kill(void)
+{
+  exit(-1);
+}
 
 /* Free the current process's resources. */
 void

@@ -39,6 +39,7 @@ static void sys_close (struct intr_frame *);
 static bool check_safe_access(const void *ptr, unsigned size);
 static void check_pointer(const void *ptr);
 static void check_pointer_range(const void *ptr, unsigned size);
+static void check_safe_string(const char *str);
 
 /* contiguous number of system calls implemented, starting from 0 (HALT) */
 #define IMPLEMENTED_SYSCALLS 12
@@ -63,9 +64,9 @@ syscall_handler (struct intr_frame *f)
 {
   check_pointer(f->esp);
   int32_t syscall_number = *(int32_t *) f->esp;
-  /* Kill thread if the system call number is bad. */
+  /* Kill process if the system call number is bad. */
   if (syscall_number < 0 || syscall_number > IMPLEMENTED_SYSCALLS) {
-    thread_exit();
+    process_kill();
   }
   system_calls[syscall_number](f);
 }
@@ -74,7 +75,7 @@ void* get_arg(struct intr_frame* f, int arg_num)
 {
   int32_t* arg_pos = (int32_t *) f->esp + arg_num;
   if (!is_user_vaddr(arg_pos)) {
-    exit(-1);
+    process_kill();
   }
   return (void *) *(arg_pos);
 }
@@ -100,8 +101,7 @@ static void sys_exit (struct intr_frame * f)
 static void sys_exec (struct intr_frame * f)
 {
   const char* cmd_line = (const char*) get_arg(f, 1);
-  check_pointer(cmd_line);
-
+  check_safe_string(cmd_line);
   f->eax = process_execute(cmd_line);
 }
 
@@ -114,9 +114,8 @@ static void sys_wait (struct intr_frame * f)
 static void sys_create (struct intr_frame * f)
 {
   const char* file = (const char*) get_arg(f, 1);
+  check_safe_string(file);
   unsigned initial_size = (unsigned) get_arg(f, 2);
-
-  check_pointer(file);
 
   lock_acquire(&filesys_lock);
   bool success = filesys_create(file, initial_size);
@@ -128,8 +127,7 @@ static void sys_create (struct intr_frame * f)
 static void sys_remove(struct intr_frame * f)
 {
   const char* file = (const char*) get_arg(f, 1);
-
-  check_pointer(file);
+  check_safe_string(file);
 
   lock_acquire(&filesys_lock);
   bool success = filesys_remove(file);
@@ -143,7 +141,7 @@ static void sys_open(struct intr_frame * f)
   int fd = -1; // File descriptor/ -1 if the file could not be opened.
 
   const char* name = (const char*) get_arg(f, 1);
-  check_pointer(name);
+  check_safe_string(name);
 
   /* allocate space for descriptor */
   void *desc_ = malloc(sizeof(struct descriptor));
@@ -223,12 +221,12 @@ static void sys_write(struct intr_frame * f)
   const void* buffer = (const void*) get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
 
+  check_pointer_range(buffer, size);
+
   int bytes_written = 0;
 
-  /* Need to check for invalid pointers (user memory access) and also
+  /* TODO Need to check for invalid pointers (user memory access) and also
    * keep track of the number of bytes written to console. */
-
-  check_pointer_range(buffer, size);
 
   /* NOTE: file_write() may be useful for keeping track of bytes written. */
   if (fd == STDOUT_FILENO) {
@@ -323,7 +321,7 @@ struct file *find_file (int fd) {
 static void check_pointer(const void *ptr)
 {
   if (!check_safe_access(ptr, 1)) {
-    exit(-1);
+    process_kill();
   }
 }
 
@@ -331,24 +329,38 @@ static void check_pointer(const void *ptr)
 static void check_pointer_range(const void *ptr, unsigned size)
 {
   if (!check_safe_access(ptr, size)) {
-    exit(-1);
+    process_kill();
   }
 }
 
-/* TODO Add process kill */
 static bool check_safe_access(const void *ptr, unsigned size)
 {
   /* Checks that the pointer is not null, not pointing to kernel memory
    * and is mapped */
-
+  struct thread *cur = thread_current();
   for (unsigned i = 0; i < size; i++) {
-    if ((const char *) ptr + i == NULL || !is_user_vaddr((const char *) ptr + i)) {
-      return false;
-    }
-    if (pagedir_get_page(thread_current()->pagedir,
-                (const char *) ptr + i) == NULL) {
+    if (!is_user_vaddr((const char *) ptr + i)
+        || pagedir_get_page(cur->pagedir, (const char *) ptr + i) == NULL) {
       return false;
     }
   }
   return true;
+}
+
+/* Checks the entirety of a string is in valid user memory.
+ * Kills the current process if it is not*/
+static void check_safe_string(const char *str)
+{
+  struct thread *cur = thread_current();
+  int i = 0;
+  while (is_user_vaddr(str + i)
+      && pagedir_get_page(cur->pagedir, str + i) != NULL) {
+    if (*(str + i) == '\0') {
+      return;
+    }
+    i++;
+  }
+
+  //encountered a bad address before string termination
+  process_kill();
 }

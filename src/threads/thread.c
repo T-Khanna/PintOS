@@ -245,13 +245,10 @@ thread_create (const char *name, int priority,
   if (t == NULL)
     return TID_ERROR;
 
-  /* Initialize thread. */
+  /* Initialize thread and process */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
-  if (tid > 1) {
-    init_process(t);
-  }
+  init_process(t);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack'
