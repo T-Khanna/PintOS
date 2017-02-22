@@ -255,6 +255,7 @@ thread_create (const char *name, int priority,
     proc->parent_dead = false;
     proc->tid = tid;
     proc->return_status = -1;
+    proc->next_fd = 3;
     proc->has_waited = false;
     proc->load_success = false;
     proc->executable = NULL;

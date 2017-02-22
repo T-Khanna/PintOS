@@ -21,7 +21,6 @@ void* get_arg(struct intr_frame *, int arg_num);
 /* Ensures that only one syscall can touch the file system
  * at a time */
 struct lock filesys_lock;
-static int fd_count = 3; // 0,1,2 are used for STDIN/OUT/ERR
 
 static void sys_halt (struct intr_frame *);
 static void sys_exit (struct intr_frame *);
@@ -154,10 +153,11 @@ static void sys_open(struct intr_frame * f)
   if (file != NULL) {
     struct descriptor *desc = malloc(sizeof(struct descriptor));
     // TODO Check Malloc
-    desc->id = fd_count++;
+    struct thread* t = thread_current();
+    desc->id = t->process_info->next_fd++;
     desc->file = file;
     fd = desc->id;
-    list_push_back(&thread_current()->descriptors, &desc->elem);
+    list_push_back(&t->descriptors, &desc->elem);
   }
 
   lock_release(&filesys_lock);

@@ -287,7 +287,7 @@ process_exit (void)
 
     /* if this thread is orphaned, free it's process struct */
     if (cur->process_info->parent_dead) {
-      free(&cur->process_info);
+      free(cur->process_info);
     }
 
     while (!list_empty(&thread_current()->descriptors)) {
