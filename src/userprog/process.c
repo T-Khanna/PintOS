@@ -282,14 +282,6 @@ process_exit (void)
         free(child);
       }
     }
-    cur->process_info->thread_dead = true;
-    sema_up(&cur->process_info->wait_sema);
-
-    /* if this thread is orphaned, free it's process struct */
-    if (cur->process_info->parent_dead) {
-      free(cur->process_info);
-    }
-
     while (!list_empty(&thread_current()->descriptors)) {
         struct descriptor *d = list_entry(
                 list_pop_front(&thread_current()->descriptors),
@@ -299,6 +291,17 @@ process_exit (void)
         //printf("%d left to free\n", --malloc_count);
         //printf("FREED\n");
     }
+
+    /* If this thread is orphaned, free it's process struct.
+     * Otherwise, we need to notify the parent that this thread is exiting. */
+    if (cur->process_info->parent_dead) {
+      free(cur->process_info);
+    } else {
+      cur->process_info->thread_dead = true;
+      sema_up(&cur->process_info->wait_sema);
+    }
+
+
   }
 
 
