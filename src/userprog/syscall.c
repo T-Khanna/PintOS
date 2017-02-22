@@ -37,9 +37,9 @@ static void sys_seek (struct intr_frame *);
 static void sys_tell (struct intr_frame *);
 static void sys_close (struct intr_frame *);
 
-static bool check_safe_access(void *ptr, unsigned size);
-static void check_pointer(void *ptr);
-static void check_pointer_range(void *ptr, unsigned size);
+static bool check_safe_access(const void *ptr, unsigned size);
+static void check_pointer(const void *ptr);
+static void check_pointer_range(const void *ptr, unsigned size);
 
 /* contiguous number of system calls implemented, starting from 0 (HALT) */
 #define IMPLEMENTED_SYSCALLS 12
@@ -193,9 +193,8 @@ static void sys_read(struct intr_frame * f)
   /* if we're reading from the stdin */
   if (fd == STDIN_FILENO) {
     /* then fill up the buffer with characters we're reading */
-    int i;
     char *buf = (char *) buffer;
-    for (i = 0; i < size; i++)
+    for (unsigned i = 0; i < size; i++)
       buf[i] = input_getc();
 
     bytes_read = size;
@@ -317,17 +316,15 @@ struct file *find_file (int fd) {
   return NULL;
 }
 
-static void check_pointer(void *ptr)
+static void check_pointer(const void *ptr)
 {
   if (!check_safe_access(ptr, 1)) {
-
-      //printf("AHJSHAIKJSHBCYTKEVWUYT\n");
     exit(-1);
   }
 }
 
 
-static void check_pointer_range(void *ptr, unsigned size)
+static void check_pointer_range(const void *ptr, unsigned size)
 {
   if (!check_safe_access(ptr, size)) {
     exit(-1);
@@ -335,17 +332,17 @@ static void check_pointer_range(void *ptr, unsigned size)
 }
 
 /* TODO Add process kill */
-static bool check_safe_access(void *ptr, unsigned size)
+static bool check_safe_access(const void *ptr, unsigned size)
 {
   /* Checks that the pointer is not null, not pointing to kernel memory
    * and is mapped */
 
   for (unsigned i = 0; i < size; i++) {
-    if ((char *) ptr + i == NULL || !is_user_vaddr((char *) ptr + i)) {
+    if ((const char *) ptr + i == NULL || !is_user_vaddr((const char *) ptr + i)) {
       return false;
     }
     if (pagedir_get_page(thread_current()->pagedir,
-                (char *) ptr + i) == NULL) {
+                (const char *) ptr + i) == NULL) {
       return false;
     }
   }
