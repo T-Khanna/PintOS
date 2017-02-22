@@ -8,9 +8,10 @@
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+Alessandro Bonardi ab9515@ic.ac.uk
+Andy Hume ah2814@ic.ac.uk
+Tanmay Khanna tk915@ic.ac.uk
+Thomas Bower tb1215@ic.ac.uk
 
 ---- PRELIMINARIES ----
 
@@ -27,97 +28,161 @@ FirstName LastName <email@domain.example>
 ---- DATA STRUCTURES ----
 
 >> A1: (2 marks)
->> Copy here the declaration of each new or changed `struct' or `struct' member, 
->> global or static variable, `typedef', or enumeration. Identify the purpose of 
+>> Copy here the declaration of each new or changed `struct' or `struct' member,
+>> global or static variable, `typedef', or enumeration. Identify the purpose of
 >> each in 25 words or less.
+
+None for argument passing.
 
 ---- ALGORITHMS ----
 
 >> A2: (8 marks)
 >> Briefly describe how you implemented argument parsing. In particular you
->> should mention how you arrange for the elements of argv[] to be in the right 
+>> should mention how you arrange for the elements of argv[] to be in the right
 >> order and how you avoid overflowing the stack page?
+
+To prevent overflowing the stack page, we place limits on commands that may be
+executed. Specifically, the length of the command string is limited to 3kB, and
+the number of arguments is limited to 200. This ensures that the amount of space
+we need on the stack is limited to
+  3kB (command string) + 200*4B (argv) + 12B (argv, argc and return address)
+  = 3884B
+which, together with the struct thread (160B), adds up to 4004B, which is less
+than 4kB, so these limits ensure we never overflow the stack.
+
+Inside process_execute, we check whether the command is longer than 3kB, and
+exit immediately if it is. Otherwise, we make a copy of the entire command
+string to pass to the child, and copy the file name to be executed into our
+stack. We then create the child thread, which is set to run start_process().
+
+The child process counts the number of arguments, and exits immediately if this
+is greater than 200.
+Otherwise, the child process calls read_args, which tokenizes the command using
+strtok_r, places the pointers into the array argv, and gives us the file name.
+
+The child then calls push_args, which iterates over the array argv in reverse
+order, copies each one to the stack using strcpy_stack, and puts the pointer
+to the argument in array argv. push_args then word aligns the stack pointer,
+pushes a word pointer, pushes the pointers in argv onto the stack by iterating
+over the array in reverse order, then pushes the pointers to argv and argc, and
+the fake return address.
 
 ---- RATIONALE ----
 
 >> A3: (5 marks)
 >> Why does Pintos implement strtok_r() but not strtok()?
 
+strtok keeps the save_ptr as static variable, therefore it is not safe for
+a thread to call strtok until the other thread is finished (it is not
+re-rentrant).
+
+strtok_r takes the save_ptr as an argument, so multiple threads can call it in
+any order, and there are no concerns about receiving an invalid pointer or
+race conditions, so it is re-rentrant.
+
+This re-entrant property is important to us because a thread may be pre-empted
+in the middle of parsing it's arguments (making calls to strtok_r), and another
+thread may then start parsing it's arguments.
+
 >> A4: (10 marks)
->> In Pintos, the kernel separates commands into a executable name and 
->> arguments. In Unix-like systems, the shell does this separation. Identify 
+>> In Pintos, the kernel separates commands into a executable name and
+>> arguments. In Unix-like systems, the shell does this separation. Identify
 >> at least two advantages of the Unix approach.
+
+Having the shell separate arguments, rather than just passing a command string
+to the kernel, allows for more powerful shells that can have features such as
+relative paths, shell variables, multiple directories containing executables
+that can be run by just their name (tracked by the $PATH variable), and aliases.
+This is possible because when the shell is responsible for parsing commands,
+it can modify the arguments to expand variables, relative paths, command
+names (to the actual file where the executable lives), and aliases.
+
+Having the shell parse commands also allows users to choose a shell based upon
+what features it offers, what syntax style it follows (including more obscure
+styles such as the fish shell), and how fast it is. Users can even use different
+shells for tasks, such as using a very simple shell like sh for scripts that
+prefer speed over advanced features, while using a slower shell with more
+advanced features such as bash, fish or zsh for interactive usage.
+
+The shell's argument parsing can also be changed without requiring an OS update,
+which may also require an OS restart to take effect, which is undesirable in
+certain environments such as servers where availability is critical.
+
+Separating this functionality also more closely follows the Unix philosophy of
+each program doing one thing well, as it separates the concerns of command
+parsing into a separate program (the shell), and reduces the complexity
+of the kernel.
 
                  SYSTEM CALLS
                  ============
 
 ---- DATA STRUCTURES ----
 
->> B1: (10 marks) 
->> Copy here the declaration of each new or changed `struct' or `struct' member, 
->> global or static variable, `typedef', or enumeration. Identify the purpose of 
+>> B1: (10 marks)
+>> Copy here the declaration of each new or changed `struct' or `struct' member,
+>> global or static variable, `typedef', or enumeration. Identify the purpose of
 >> each in 25 words or less.
 
 >> B2: (5 marks)
->> Describe how you associate file descriptors with open files. Are your file 
+>> Describe how you associate file descriptors with open files. Are your file
 >> descriptors unique within the entire OS or just within a single process?
 
 ---- ALGORITHMS ----
 
 >> B3: (5 marks)
 >> Describe how your code ensures safe memory access of user provided data from
->> within the kernel. 
+>> within the kernel.
 
 >> B4: (5 marks)
->> Suppose a system call passes the kernel a pointer to a full page 
->> (4,096 bytes) of data that has to be copied from user space. What is the 
+>> Suppose a system call passes the kernel a pointer to a full page
+>> (4,096 bytes) of data that has to be copied from user space. What is the
 >> least and the greatest possible number of inspections of the page table
->> (e.g. calls to pagedir_get_page()) that might result? What about for a system 
->> call that passes a pointer to only 2 bytes of data? How might you improve 
+>> (e.g. calls to pagedir_get_page()) that might result? What about for a system
+>> call that passes a pointer to only 2 bytes of data? How might you improve
 >> these numbers?
 
 >> B5: (8 marks)
->> Describe your implementation of the "wait" system call and how it interacts 
+>> Describe your implementation of the "wait" system call and how it interacts
 >> with process termination for both the parent and child.
 
 >> B6: (5 marks)
->> Any access to user program memory at a user-specified address can fail due to 
->> a bad pointer value. Such accesses must cause the process to be terminated. 
->> System calls are fraught with such accesses, e.g. a "write" system call 
->> requires reading the system call number from the user stack, then each of the 
+>> Any access to user program memory at a user-specified address can fail due to
+>> a bad pointer value. Such accesses must cause the process to be terminated.
+>> System calls are fraught with such accesses, e.g. a "write" system call
+>> requires reading the system call number from the user stack, then each of the
 >> call's three arguments, then an arbitrary amount of user memory, and any of
->> these can fail at any point. This poses a design and error-handling problem: 
->> how do you best avoid obscuring the primary function of code in a morass of 
->> error-handling? Furthermore, when an error is detected, how do you ensure 
->> that all temporarily allocated resources (locks, buffers, etc.) are freed? 
->> In a paragraph, describe the strategy or strategies you adopted for managing 
+>> these can fail at any point. This poses a design and error-handling problem:
+>> how do you best avoid obscuring the primary function of code in a morass of
+>> error-handling? Furthermore, when an error is detected, how do you ensure
+>> that all temporarily allocated resources (locks, buffers, etc.) are freed?
+>> In a paragraph, describe the strategy or strategies you adopted for managing
 >> these issues.
 
 ---- SYNCHRONIZATION ----
 
 >> B7: (5 marks)
->> The "exec" system call returns -1 if loading the new executable fails, so it 
->> cannot return before the new executable has completed loading. How does your 
->> code ensure this? How is the load success/failure status passed back to the 
+>> The "exec" system call returns -1 if loading the new executable fails, so it
+>> cannot return before the new executable has completed loading. How does your
+>> code ensure this? How is the load success/failure status passed back to the
 >> thread that calls "exec"?
 
 >> B8: (5 marks)
->> Consider parent process P with child process C. How do you ensure proper 
->> synchronization and avoid race conditions when P calls wait(C) before or 
->> after C exits? How do you ensure that all resources are freed in each case? 
->> How about when P terminates, without waiting, before or after C exits? Your 
+>> Consider parent process P with child process C. How do you ensure proper
+>> synchronization and avoid race conditions when P calls wait(C) before or
+>> after C exits? How do you ensure that all resources are freed in each case?
+>> How about when P terminates, without waiting, before or after C exits? Your
 >> answer must cover all four cases mentioned above and address resource freeing.
 
 ---- RATIONALE ----
 
 >> B9: (5 marks)
->> Why did you choose to implement safe access of user memory from the kernel in 
+>> Why did you choose to implement safe access of user memory from the kernel in
 >> the way that you did?
 
 >> B10: (5 marks)
->> What advantages or disadvantages can you see to your design for file 
+>> What advantages or disadvantages can you see to your design for file
 >> descriptors?
 
 >> B11: (2 marks)
->> The default tid_t to pid_t mapping is the identity mapping. Did you change 
+>> The default tid_t to pid_t mapping is the identity mapping. Did you change
 >> this? Why?

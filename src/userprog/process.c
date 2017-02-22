@@ -108,7 +108,7 @@ start_process (void *command_)
   t->process_info->load_success = success;
   sema_up(&t->process_info->exec_sema);
 
-  /* put arguments onto stack */
+  /* put arguments onto stack if we loaded the file sucessfully */
   if (success) {
     push_args(&if_, argc, argv);
   }
