@@ -72,7 +72,33 @@ process_execute (const char *command)
   struct process *child = get_process_by_tid(tid, &curr->child_processes);
   sema_down(&child->exec_sema);
 
-  return child->load_success ? tid : -1;
+  return child->load_success ? tid : TID_ERROR;
+}
+
+/* initialize the struct process for the passed thread, as a child of the
+ * current thread. */
+void
+init_process (struct thread *t) {
+  /* allocate memory for the struct process */
+  struct process *proc = (struct process *) malloc(sizeof(struct process));
+
+  proc->tid = t->tid;
+  proc->return_status = RET_ERROR;
+  proc->next_fd = 3;
+  proc->has_waited = false;
+  proc->load_success = false;
+  proc->thread_dead = false;
+  proc->parent_dead = false;
+  proc->executable = NULL;
+
+  sema_init(&proc->exec_sema, 0);
+  sema_init(&proc->wait_sema, 0);
+
+  list_push_back(&thread_current()->child_processes, &proc->child_elem);
+
+  /* process is now initialized fully */
+  t->process = proc;
+  return;
 }
 
 /* A thread function that loads a user command and starts it
@@ -87,8 +113,8 @@ start_process (void *command_)
   int argc = count_args(cmd);
   if (argc > MAX_ARGS) {
     palloc_free_page (cmd);
-    t->process_info->load_success = false;
-    sema_up(&t->process_info->exec_sema);
+    t->process->load_success = false;
+    sema_up(&t->process->exec_sema);
     exit(TID_ERROR);
   }
 
@@ -105,8 +131,8 @@ start_process (void *command_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   bool success = load(file_name, &if_.eip, &if_.esp);
 
-  t->process_info->load_success = success;
-  sema_up(&t->process_info->exec_sema);
+  t->process->load_success = success;
+  sema_up(&t->process->exec_sema);
 
   /* put arguments onto stack if we loaded the file sucessfully */
   if (success) {
@@ -233,8 +259,6 @@ get_process_by_tid(tid_t tid, struct list* processes)
   return result;
 }
 
-
-
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
@@ -268,11 +292,11 @@ process_exit (void)
   struct thread *cur = thread_current();
   uint32_t *pd;
 
-  if (cur->process_info->executable != NULL) {
-    file_close(cur->process_info->executable);
+  if (cur->process->executable != NULL) {
+    file_close(cur->process->executable);
   }
 
-  if (cur->tid >= 3) {
+  if (cur->tid > 1) {
     /* free all of the child processes who's thread is no longer running */
     while(!list_empty(&cur->child_processes)) {
       struct process* child = list_entry(list_pop_front(&cur->child_processes),
@@ -282,12 +306,13 @@ process_exit (void)
         free(child);
       }
     }
-    cur->process_info->thread_dead = true;
-    sema_up(&cur->process_info->wait_sema);
+    
+    cur->process->thread_dead = true;
+    sema_up(&cur->process->wait_sema);
 
     /* if this thread is orphaned, free it's process struct */
-    if (cur->process_info->parent_dead) {
-      free(cur->process_info);
+    if (cur->process->parent_dead) {
+      free(cur->process);
     }
 
     while (!list_empty(&thread_current()->descriptors)) {
@@ -515,8 +540,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
-  t->process_info->executable = file;
-  file_deny_write(t->process_info->executable);
+  t->process->executable = file;
+  file_deny_write(t->process->executable);
 
   success = true;
 

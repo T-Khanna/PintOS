@@ -20,7 +20,7 @@ void* get_arg(struct intr_frame *, int arg_num);
 
 /* Ensures that only one syscall can touch the file system
  * at a time */
-struct lock filesys_lock;
+static struct lock filesys_lock;
 
 static void sys_halt (struct intr_frame *);
 static void sys_exit (struct intr_frame *);
@@ -85,7 +85,7 @@ static void sys_halt (struct intr_frame * f UNUSED) {
 }
 
 void exit(int status) {
-  thread_current()->process_info->return_status = status;
+  thread_current()->process->return_status = status;
   printf("%s: exit(%d)\n", thread_current()->name, status);
   thread_exit();
   NOT_REACHED();
@@ -154,7 +154,7 @@ static void sys_open(struct intr_frame * f)
     struct descriptor *desc = malloc(sizeof(struct descriptor));
     // TODO Check Malloc
     struct thread* t = thread_current();
-    desc->id = t->process_info->next_fd++;
+    desc->id = t->process->next_fd++;
     desc->file = file;
     fd = desc->id;
     list_push_back(&t->descriptors, &desc->elem);
