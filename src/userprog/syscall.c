@@ -148,9 +148,7 @@ static void sys_open(struct intr_frame * f)
   /* allocate space for descriptor */
   void *desc_ = malloc(sizeof(struct descriptor));
   if (desc_ == NULL) {
-    /*could not allocate space for descriptor, exit */
-    f->eax = fd;
-    return;
+    goto exit;
   }
   struct descriptor *desc = (struct descriptor *) desc_;
 
@@ -166,8 +164,10 @@ static void sys_open(struct intr_frame * f)
   }
 
   lock_release(&filesys_lock);
-  f->eax = fd;
 
+exit:
+  f->eax = fd;
+  return;
 }
 
 static void sys_filesize(struct intr_frame * f)
