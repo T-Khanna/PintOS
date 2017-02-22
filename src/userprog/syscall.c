@@ -20,7 +20,7 @@ void* get_arg(struct intr_frame *, int arg_num);
 
 /* Ensures that only one syscall can touch the file system
  * at a time */
-struct lock filesys_lock;
+static struct lock filesys_lock;
 
 static void sys_halt (struct intr_frame *);
 static void sys_exit (struct intr_frame *);
@@ -85,7 +85,7 @@ static void sys_halt (struct intr_frame * f UNUSED) {
 }
 
 void exit(int status) {
-  thread_current()->process_info->return_status = status;
+  thread_current()->process->return_status = status;
   printf("%s: exit(%d)\n", thread_current()->name, status);
   thread_exit();
   NOT_REACHED();
@@ -93,7 +93,6 @@ void exit(int status) {
 
 static void sys_exit (struct intr_frame * f)
 {
-  // This may not be entirely finished. TODO
   int status = (int) get_arg(f, 1);
   exit(status);
 }
@@ -146,23 +145,29 @@ static void sys_open(struct intr_frame * f)
   const char* name = (const char*) get_arg(f, 1);
   check_pointer(name);
 
-  lock_acquire(&filesys_lock);
+  /* allocate space for descriptor */
+  void *desc_ = malloc(sizeof(struct descriptor));
+  if (desc_ == NULL) {
+    goto exit;
+  }
+  struct descriptor *desc = (struct descriptor *) desc_;
 
+  lock_acquire(&filesys_lock);
   struct file* file = filesys_open(name);
 
   if (file != NULL) {
-    struct descriptor *desc = malloc(sizeof(struct descriptor));
-    // TODO Check Malloc
     struct thread* t = thread_current();
-    desc->id = t->process_info->next_fd++;
+    desc->id = t->process->next_fd++;
     desc->file = file;
     fd = desc->id;
     list_push_back(&t->descriptors, &desc->elem);
   }
 
   lock_release(&filesys_lock);
-  f->eax = fd;
 
+exit:
+  f->eax = fd;
+  return;
 }
 
 static void sys_filesize(struct intr_frame * f)
@@ -182,7 +187,6 @@ static void sys_filesize(struct intr_frame * f)
 
 static void sys_read(struct intr_frame * f)
 {
-    //printf("NOW IT'S READ TIME!\n");
   int fd = (int) get_arg(f, 1);
   void* buffer = get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);

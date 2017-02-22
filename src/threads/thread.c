@@ -250,20 +250,7 @@ thread_create (const char *name, int priority,
   tid = t->tid = allocate_tid ();
 
   if (tid > 1) {
-    struct process *proc = (struct process *) malloc(sizeof(struct process));
-    proc->thread_dead = false;
-    proc->parent_dead = false;
-    proc->tid = tid;
-    proc->return_status = -1;
-    proc->next_fd = 3;
-    proc->has_waited = false;
-    proc->load_success = false;
-    proc->executable = NULL;
-    sema_init(&proc->exec_sema, 0);
-    sema_init(&proc->wait_sema, 0);
-    struct thread *cur = thread_current();
-    list_push_back(&cur->child_processes, &proc->child_elem);
-    t->process_info = proc;
+    init_process(t);
   }
 
   /* Prepare thread for first run by initializing its stack.
