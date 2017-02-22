@@ -273,7 +273,7 @@ process_exit (void)
     if (cur->process_info->parent_dead) {
       free(&cur->process_info);
     }
-    
+
     while (!list_empty(&thread_current()->descriptors)) {
         struct descriptor *d = list_entry(
                 list_pop_front(&thread_current()->descriptors),
@@ -283,12 +283,12 @@ process_exit (void)
         //printf("%d left to free\n", --malloc_count);
         //printf("FREED\n");
     }
-    
-    
+
+
   }
 
-  if (cur->process_info->executable != NULL) {
-    file_allow_write(cur->process_info->executable);
+  if (cur->executable != NULL) {
+    file_allow_write(cur->executable);
   }
 
 
@@ -423,8 +423,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done;
     }
-  t->process_info->executable = file;
-  file_deny_write(t->process_info->executable);
 
 
   /* Read and verify executable header. */
@@ -505,6 +503,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
+
+  t->executable = file;
+  file_deny_write(t->executable);
 
   success = true;
 
