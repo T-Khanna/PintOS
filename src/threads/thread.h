@@ -122,7 +122,6 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory */
     struct list descriptors;            /* List of all file descriptors */
-    struct file* executable;            /* Process executable */
     struct process *process_info;        /* Information about the process this
                                            thread executes. */
     struct list child_processes;        /* List of child processes created
