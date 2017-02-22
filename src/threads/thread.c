@@ -248,7 +248,9 @@ thread_create (const char *name, int priority,
   /* Initialize thread and process */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  #ifdef USERPROG
   init_process(t);
+  #endif
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack'
@@ -663,12 +665,15 @@ init_thread (struct thread *t, const char *name, int priority)
     t->effective_priority = t->priority;
   }
 
+  t->lock_to_acquire = NULL;
   t->magic = THREAD_MAGIC;
   sema_init(&t->timer, 0);
 
   list_init(&t->locks_held);
+  #ifdef USERPROG
   list_init(&t->descriptors);
   list_init(&t->child_processes);
+  #endif
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
