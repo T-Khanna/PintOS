@@ -47,13 +47,17 @@ process_execute (const char *command)
   char cmd_copy_2[MAX_FILE_NAME + 1];
   tid_t tid;
 
+  if (strlen(command) > MAX_CMD) {
+    return TID_ERROR;
+  }
+
   /* Copy the command into cmd_copy.
      Otherwise there's a race between the caller and load(). */
   cmd_copy = palloc_get_page (0);
   if (cmd_copy == NULL) {
     return TID_ERROR;
   }
-  strlcpy(cmd_copy, command, PGSIZE);
+  strlcpy(cmd_copy, command, MAX_CMD);
   strlcpy(cmd_copy_2, command, sizeof cmd_copy_2);
   char *save_ptr;
   char *name = strtok_r(cmd_copy_2, " ", &save_ptr);
@@ -76,23 +80,31 @@ process_execute (const char *command)
 static void
 start_process (void *command_)
 {
-  /* tokenize command */
+  struct thread* t = thread_current();
   char *cmd = command_;
+
+  /* ensure <= 200 arguments */
   int argc = count_args(cmd);
+  if (argc > MAX_ARGS) {
+    palloc_free_page (cmd);
+    t->process_info->load_success = false;
+    sema_up(&t->process_info->exec_sema);
+    exit(TID_ERROR);
+  }
+
+  /* tokenize command */
   char *argv[argc];
   char *file_name;
   read_args(argv, &file_name, cmd);
 
   /* Initialize interrupt frame and load executable. */
   struct intr_frame if_;
-  bool success = (argc <= MAX_ARGS); /* ensure < 200 arguments */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success &= load(file_name, &if_.eip, &if_.esp);
+  bool success = load(file_name, &if_.eip, &if_.esp);
 
-  struct thread* t = thread_current();
   t->process_info->load_success = success;
   sema_up(&t->process_info->exec_sema);
 
