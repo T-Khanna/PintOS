@@ -256,6 +256,10 @@ process_exit (void)
   struct thread *cur = thread_current();
   uint32_t *pd;
 
+  if (cur->process_info->executable != NULL) {
+    file_close(cur->process_info->executable);
+  }
+
   if (cur->tid >= 3) {
     /* free all of the child processes who's thread is no longer running */
     while(!list_empty(&cur->child_processes)) {
@@ -283,13 +287,8 @@ process_exit (void)
         //printf("%d left to free\n", --malloc_count);
         //printf("FREED\n");
     }
-
-
   }
 
-  if (cur->executable != NULL) {
-    file_allow_write(cur->executable);
-  }
 
 
 
@@ -504,8 +503,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
-  t->executable = file;
-  file_deny_write(t->executable);
+  t->process_info->executable = file;
+  file_deny_write(t->process_info->executable);
 
   success = true;
 

@@ -257,6 +257,7 @@ thread_create (const char *name, int priority,
     proc->return_status = -1;
     proc->has_waited = false;
     proc->load_success = false;
+    proc->executable = NULL;
     sema_init(&proc->exec_sema, 0);
     sema_init(&proc->wait_sema, 0);
     struct thread *cur = thread_current();

@@ -17,6 +17,7 @@ struct process {
                                          a success. */
   bool thread_dead;                   /* True when the thread is dead */
   bool parent_dead;                   /* True when the parent process is dead */
+  struct file* executable;            /* Process executable */
   struct semaphore wait_sema;         /* Sempahore used to wait for a
                                          child process. */
   struct semaphore exec_sema;         /* Semaphore used to synchronise with
