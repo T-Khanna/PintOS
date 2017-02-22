@@ -306,7 +306,7 @@ process_exit (void)
         free(child);
       }
     }
-    
+
     cur->process->thread_dead = true;
     sema_up(&cur->process->wait_sema);
 

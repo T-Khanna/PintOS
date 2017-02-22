@@ -93,7 +93,6 @@ void exit(int status) {
 
 static void sys_exit (struct intr_frame * f)
 {
-  // This may not be entirely finished. TODO
   int status = (int) get_arg(f, 1);
   exit(status);
 }
@@ -146,13 +145,19 @@ static void sys_open(struct intr_frame * f)
   const char* name = (const char*) get_arg(f, 1);
   check_pointer(name);
 
-  lock_acquire(&filesys_lock);
+  /* allocate space for descriptor */
+  void *desc_ = malloc(sizeof(struct descriptor));
+  if (desc_ == NULL) {
+    /*could not allocate space for descriptor, exit */
+    f->eax = fd;
+    return;
+  }
+  struct descriptor *desc = (struct descriptor *) desc_;
 
+  lock_acquire(&filesys_lock);
   struct file* file = filesys_open(name);
 
   if (file != NULL) {
-    struct descriptor *desc = malloc(sizeof(struct descriptor));
-    // TODO Check Malloc
     struct thread* t = thread_current();
     desc->id = t->process->next_fd++;
     desc->file = file;
@@ -182,7 +187,6 @@ static void sys_filesize(struct intr_frame * f)
 
 static void sys_read(struct intr_frame * f)
 {
-    //printf("NOW IT'S READ TIME!\n");
   int fd = (int) get_arg(f, 1);
   void* buffer = get_arg(f, 2);
   unsigned size = (unsigned) get_arg(f, 3);
