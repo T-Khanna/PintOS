@@ -24,7 +24,6 @@
 #define MAX_ARGS 200
 #define MAX_FILE_NAME 16
 #define WORDSIZE 4
-#define PTRSIZE 4
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -296,38 +295,31 @@ process_exit (void)
     file_close(cur->process->executable);
   }
 
-  if (cur->tid > 1) {
-    /* free all of the child processes who's thread is no longer running */
-    while(!list_empty(&cur->child_processes)) {
-      struct process* child = list_entry(list_pop_front(&cur->child_processes),
-                                         struct process, child_elem);
-      child->parent_dead = true;
-      if (child->thread_dead) {
-        free(child);
-      }
-    }
-
-    cur->process->thread_dead = true;
-    sema_up(&cur->process->wait_sema);
-
-    /* if this thread is orphaned, free it's process struct */
-    if (cur->process->parent_dead) {
-      free(cur->process);
-    }
-
-    while (!list_empty(&thread_current()->descriptors)) {
-        struct descriptor *d = list_entry(
-                list_pop_front(&thread_current()->descriptors),
-                struct descriptor, elem);
-        file_close(d->file);
-        free(d);
-        //printf("%d left to free\n", --malloc_count);
-        //printf("FREED\n");
+  /* free all of the child processes who's thread is no longer running */
+  while(!list_empty(&cur->child_processes)) {
+    struct process* child = list_entry(list_pop_front(&cur->child_processes),
+                                       struct process, child_elem);
+    child->parent_dead = true;
+    if (child->thread_dead) {
+      free(child);
     }
   }
 
+  cur->process->thread_dead = true;
+  sema_up(&cur->process->wait_sema);
 
+  /* if this thread is orphaned, free it's process struct */
+  if (cur->process->parent_dead) {
+    free(cur->process);
+  }
 
+  while (!list_empty(&thread_current()->descriptors)) {
+    struct descriptor *d = list_entry(
+            list_pop_front(&thread_current()->descriptors),
+            struct descriptor, elem);
+    file_close(d->file);
+    free(d);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
