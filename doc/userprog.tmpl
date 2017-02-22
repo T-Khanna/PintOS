@@ -123,9 +123,88 @@ of the kernel.
 >> global or static variable, `typedef', or enumeration. Identify the purpose of
 >> each in 25 words or less.
 
+In userprog/process.h, added new structure 'struct process'. This structure is
+used to keep track of process information used by the system calls, even if the
+thread dies.
+
+struct process 
+  {
+    tid_t tid;                        - Thread identifier that this process
+                                        is associated with.
+    int return_status;                - Return status of the process. Used
+                                        for exit system call.
+    int next_fd;                      - Counter used to allocate the id for the
+                                        next file descriptor.
+    bool has_waited;                  - Checks if process_wait has already
+                                        successfully called on this process.
+    bool load_success;                - Checks if loading an executable was a
+                                        success. Used in the exec system call.
+    bool thread_dead;                 - True when the thread is dead. Used to
+                                        check if we need to free the process.
+    bool parent_dead;                 - The parent process usually frees the
+                                        child, but if the child is orphaned,
+                                        this is needed to free the child when
+                                        it exits.
+    struct file* executable;          - Used to keep track of executable file
+                                        successfully loaded and also to deny
+                                        file writes to the running executable.
+    struct semaphore wait_sema;       - Sempahore used to wait for a child
+                                        process in process_wait().
+    struct semaphore exec_sema;       - Semaphore used to wait for a child
+                                        process to try to load its executable.
+    struct list_elem child_elem;      - Used by the thread to keep track
+                                        of its child processes.
+  };
+
+In filesys/descriptor.h, added new structure 'struct descriptor', which is used
+to keep track of the files opened by the process and their ids.
+
+struct descriptor
+  {
+    int id;                           - The id relating to the descriptor.
+    struct file *file;                - The file associated with the id. Used
+                                        with the id to create a mapping to
+                                        this file.
+    struct list_elem elem;            - Used by the thread to keep track of the
+                                        file descriptors used by the process.
+  };
+
+In threads/thread.h, added the following members to 'struct thread'
+
+  struct list descriptors;            - List of all file descriptors. Used to
+                                        keep track of the files opened by this
+                                        process and their ids.
+  struct process *process;            - Process this thread executes. Keeps
+                                        track of process information used by the
+                                        system calls even if this thread dies.
+  struct list child_processes;        - List of child processes created by the
+                                        thread. Used with get_process_by_tid()
+                                        to find the child this thread must
+                                        wait for.
+
+In syscall.c, added the following static variables
+
+  static struct lock filesys_lock; 
+
+  static void (*system_calls[]) (struct intr_frame *);
+
+The filesys_lock is used to ensure that only one process can access the file
+system at any time. The system_calls array is a function pointer table mapping
+the system call number given in the interrupt frame to the correct system call.
+
 >> B2: (5 marks)
 >> Describe how you associate file descriptors with open files. Are your file
 >> descriptors unique within the entire OS or just within a single process?
+
+We use the 'struct process' member next_fd, which simply increments whenever we
+require a new file descriptor. After retrieving this value, we also copy the
+file pointer into the descriptor structure, effectively creating a mapping
+between the id and the file.
+
+Each thread has a list of 'struct descriptor' members. We use the mapping
+described above to access the correct file in this list. As we access the next
+file descriptor id with the process structure, our file descriptors are unique
+within a single process.
 
 ---- ALGORITHMS ----
 
@@ -144,6 +223,39 @@ of the kernel.
 >> B5: (8 marks)
 >> Describe your implementation of the "wait" system call and how it interacts
 >> with process termination for both the parent and child.
+
+When the "wait" system call is called, we call process_wait. In process_wait,
+we get the child process by calling the get_process_by_tid() function, passing
+in the child_tid and the child_processes from the current thread. If we don't
+find the child process, either the process corresponding to the tid is not a
+direct child or it has been terminated by the kernel, or the child_tid is
+invalid. In all of these cases, get_process_by_tid() will return NULL. If the
+child thread has terminated before we call process_wait(), the process
+associated with the child thread remains on the list of child_processes of the
+parent thread, so we are still able to retrieve the exit status of the child.
+
+We now check if we need to wait for the process. In the cases mentioned above,
+we can check for these by simply checking if the process pointer is NULL. In
+the other case where process_wait() has already been successfully called on the
+child_tid, we check if the has_waited member in the process is set. If either of
+these conditions is true, we immediately return -1 without waiting for the
+process.
+
+After this, process_wait() has been successfully called on the child_tid, so we
+set the has_waited member of the child to true. We then down wait_sema in the
+child process (initialised to a value of 0), which blocks the current thread
+until the child process exits.
+
+When the child process exits, the exit status is set through the exit system
+call. It then calls thread_exit(), which calls process_exit(). After freeing 
+all the resources no longer needed at this point, we up wait_sema of this
+process. This unblocks the parent and allows us to return the exit status of
+the child process.
+
+When the parent terminates, the child process no longer needs to be kept as the
+parent is not waiting for it anymore. We use the parent_dead variable to keep
+track of when a child is alive and its parent is dead. In this case, we free
+the child process.
 
 >> B6: (5 marks)
 >> Any access to user program memory at a user-specified address can fail due to
@@ -186,3 +298,5 @@ of the kernel.
 >> B11: (2 marks)
 >> The default tid_t to pid_t mapping is the identity mapping. Did you change
 >> this? Why?
+
+We did not change the identity tid_t to pid_t mapping for simplicity.

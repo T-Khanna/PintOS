@@ -313,14 +313,6 @@ process_exit (void)
     }
   }
 
-  cur->process->thread_dead = true;
-  sema_up(&cur->process->wait_sema);
-
-  /* if this thread is orphaned, free it's process struct */
-  if (cur->process->parent_dead) {
-    free(cur->process);
-  }
-
   while (!list_empty(&thread_current()->descriptors)) {
     struct descriptor *d = list_entry(
             list_pop_front(&thread_current()->descriptors),
@@ -328,6 +320,16 @@ process_exit (void)
     file_close(d->file);
     free(d);
   }
+
+  /* If this thread is orphaned, free it's process struct.
+   * Otherwise, we need to notify the parent that this thread is exiting. */
+  if (cur->process_info->parent_dead) {
+    free(cur->process_info);
+  } else {
+    cur->process_info->thread_dead = true;
+    sema_up(&cur->process_info->wait_sema);
+  }
+
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
