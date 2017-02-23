@@ -226,37 +226,34 @@ point to different files compared to another process.
 >> with process termination for both the parent and child.
 
 When the "wait" system call is called, we call process_wait. In process_wait,
-we get the child process by calling the get_process_by_tid() function, passing
-in the child_tid and the child_processes from the current thread. If we don't
-find the child process, either the process corresponding to the tid is not a
-direct child or it has been terminated by the kernel, or the child_tid is
-invalid. In all of these cases, get_process_by_tid() will return NULL. If the
-child thread has terminated before we call process_wait(), the process
+we get the child process by searching the list of child processes of the current
+thread. If we don't find the child process, either the process corresponding to
+the tid is not a direct child, it has been terminated by the kernel, the
+child_tid is invalid, or the parent has already waited on the child and it's
+process has been removed from the list of child processes. In all of these
+cases, get_process_by_tid() will return NULL, and we immediately return -1 to
+inidcate an error.
+
+If we got the child process successfully (i.e. it's not NULL), then we are ok
+to wait on it, so we down the semaphore wait_sema (initialized to 0), which
+blocks us until the child process has finished executing. Either the child was
+not finished executing when we downed the semaphore, in which case we waited
+until the child upped the semaphore upon exiting, or it already finshed and
+upped the semaphore before, in which case the semaphore's value is now 1 and we
+downed it immediately.
+
+If the child thread has terminated before we call process_wait(), the process
 associated with the child thread remains on the list of child_processes of the
-parent thread, so we are still able to retrieve the exit status of the child.
+parent thread, so we are still able to retrieve the exit status of the child. We
+free these dead child processes when the parent exits.
 
-We now check if we need to wait for the process. In the cases mentioned above,
-we can check for these by simply checking if the process pointer is NULL. In
-the other case where process_wait() has already been successfully called on the
-child_tid, we check if the has_waited member in the process is set. If either of
-these conditions is true, we immediately return -1 without waiting for the
-process.
-
-After this, process_wait() has been successfully called on the child_tid, so we
-set the has_waited member of the child to true. We then down wait_sema in the
-child process (initialised to a value of 0), which blocks the current thread
-until the child process exits.
-
-When the child process exits, the exit status is set through the exit system
+When a process exits, the exit status is set through the exit system
 call. It then calls thread_exit(), which calls process_exit(). After freeing
 all the resources no longer needed at this point, we up wait_sema of this
-process. This unblocks the parent and allows us to return the exit status of
-the child process.
-
-When the parent terminates, the child process no longer needs to be kept as the
-parent is not waiting for it anymore. We use the parent_dead variable to keep
-track of when a child is alive and its parent is dead. In this case, we free
-the child process.
+process. This unblocks the parent if it is waiting and allows us to return the
+exit status of the child process. At this point, we also notify all children of this process
+that they are ophaned i.e. their parent (the process exiting) is dead, and if this processes is
+orphaned (it's parent is dead), it frees it's own process struct.
 
 >> B6: (5 marks)
 >> Any access to user program memory at a user-specified address can fail due to
