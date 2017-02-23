@@ -249,7 +249,10 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   #ifdef USERPROG
-  init_process(t);
+  if (!init_process(t)) {
+    palloc_free_page(t);
+    return TID_ERROR;
+  }
   #endif
 
   /* Prepare thread for first run by initializing its stack.

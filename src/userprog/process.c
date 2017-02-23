@@ -76,11 +76,15 @@ process_execute (const char *command)
 }
 
 /* initialize the struct process for the passed thread, as a child of the
- * current thread. */
-void
+ * current thread. Returns false if we failed to allocate space. */
+bool
 init_process (struct thread *t) {
   /* allocate memory for the struct process */
   struct process *proc = (struct process *) malloc(sizeof(struct process));
+
+  if (proc == NULL) {
+    return false;
+  }
 
   proc->tid = t->tid;
   proc->return_status = RET_ERROR;
@@ -98,7 +102,7 @@ init_process (struct thread *t) {
 
   /* process is now initialized fully */
   t->process = proc;
-  return;
+  return true;
 }
 
 /* A thread function that loads a user command and starts it

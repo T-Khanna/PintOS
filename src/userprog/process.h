@@ -34,7 +34,7 @@ struct process
   };
 
 struct process* get_process_by_tid(tid_t tid, struct list* processes);
-void init_process (struct thread *t);
+bool init_process (struct thread *t);
 tid_t process_execute (const char *file_name);
 int process_wait (tid_t);
 void process_exit (void);
