@@ -137,9 +137,9 @@ struct process
                                         next file descriptor.
     bool load_success;                - Checks if loading an executable was a
                                         success. Used in the exec system call.
-    bool thread_dead;                 - True when the thread is dead. Used to
-                                        check if we need to free the process.
-    bool parent_dead;                 - The parent process usually frees the
+    bool thread_dead;                 - True when the
+The shell's argument parsing can also be changed without requiring an OS update,
+which may also require an OS restart to take effect, wocess usually frees the
                                         child, but if the child is orphaned,
                                         this is needed to free the child when
                                         it exits.
@@ -196,13 +196,13 @@ the system call number given in the interrupt frame to the correct system call.
 
 We use the 'struct process' member next_fd, which simply increments whenever we
 open a new file. After retrieving this newly generated value, we also add a
-pointer to the new file into the descriptor structure, effectively creating a 
+pointer to the new file into the descriptor structure, effectively creating a
 mapping between the id and the file.
 
 Each thread has a list of 'struct descriptor' members. We use the mapping
 described above to access the correct file in this list.
 
-As we access the next_fd counter from within the process structure, our file 
+As we access the next_fd counter from within the process structure, our file
 descriptors are unique within a single process. It is possible (and in fact
 likely) that different processes will have identical file descriptors which
 point to different files compared to another process.
@@ -251,9 +251,10 @@ When a process exits, the exit status is set through the exit system
 call. It then calls thread_exit(), which calls process_exit(). After freeing
 all the resources no longer needed at this point, we up wait_sema of this
 process. This unblocks the parent if it is waiting and allows us to return the
-exit status of the child process. At this point, we also notify all children of this process
-that they are ophaned i.e. their parent (the process exiting) is dead, and if this processes is
-orphaned (it's parent is dead), it frees it's own process struct.
+exit status of the child process. At this point, we also notify all children of
+this process that they are ophaned i.e. their parent (the process exiting) is
+dead, and if this processes is orphaned (it's parent is dead), it frees it's
+own process struct.
 
 >> B6: (5 marks)
 >> Any access to user program memory at a user-specified address can fail due to
