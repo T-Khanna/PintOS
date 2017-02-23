@@ -195,14 +195,17 @@ the system call number given in the interrupt frame to the correct system call.
 >> descriptors unique within the entire OS or just within a single process?
 
 We use the 'struct process' member next_fd, which simply increments whenever we
-require a new file descriptor. After retrieving this value, we also copy the
-file pointer into the descriptor structure, effectively creating a mapping
-between the id and the file.
+open a new file. After retrieving this newly generated value, we also add a
+pointer to the new file into the descriptor structure, effectively creating a 
+mapping between the id and the file.
 
 Each thread has a list of 'struct descriptor' members. We use the mapping
-described above to access the correct file in this list. As we access the next
-file descriptor id with the process structure, our file descriptors are unique
-within a single process.
+described above to access the correct file in this list.
+
+As we access the next_fd counter from within the process structure, our file 
+descriptors are unique within a single process. It is possible (and in fact
+likely) that different processes will have identical file descriptors which
+point to different files compared to another process.
 
 ---- ALGORITHMS ----
 
