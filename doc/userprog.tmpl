@@ -283,7 +283,33 @@ the child process.
 >> synchronization and avoid race conditions when P calls wait(C) before or
 >> after C exits? How do you ensure that all resources are freed in each case?
 >> How about when P terminates, without waiting, before or after C exits? Your
->> answer must cover all four cases mentioned above and address resource freeing.
+>> answer must cover all four cases mentioned above and address resource
+>> freeing.
+
+Case 1: Parent calls wait(C) before C exits
+In this case, C forces P to wait for it by calling sema_down on its wait_sema.
+Because this is initialised with a value of zero, P is blocked and added to the
+waiters list of C. This semaphore is only upped when process_exit() is called
+on C, by which point the return_status is set in C. All of C's resources are
+freed by P when P exits, which is required in order to deal with Case 2.
+
+Case 2: Parent calls wait(C) after C exits
+In this case, P doesn't have to wait for C as it is already dead. Because C has
+exited before wait(C) is called, when we call sema_up on the child's wait
+semaphore in process_exit(), the value increases from the initial value of 0 to
+1. This means that when we down the semaphore in process_wait(), we don't block
+the thread. Instead we just return the return_status from the process. C's
+resources are freed in the same manner as Case 1.
+
+Case 3: Parent terminates, without waiting, before C exits
+If the parent terminates before C exits, we cannot rely on C being freed by P
+anymore. As such, we use a parent_dead variable, which keeps track of when a
+parent is dead. In this case, when C exits, the parent_dead variable is set to
+true. When process_exit() for C is called, if parent_dead is true, we no longer
+require the process structure, so we free it at this point.
+
+Case 4: Parent terminates, without waiting, after C exits
+C's resources are freed in the same manner as Case 1.
 
 ---- RATIONALE ----
 
@@ -295,8 +321,20 @@ the child process.
 >> What advantages or disadvantages can you see to your design for file
 >> descriptors?
 
+The main advantage is that we don't have to search through all the files in the
+file system to find the file that is owned by the current thread, which could
+become very expensive as more and more files get created in the file system.
+Also, the list of file descriptors is not limited to a fixed size, so we are
+not relying on limiting the number of files our filesystem can hold.
+
+A disadvantage in this approach is that we may have to iterate through all the
+files of a thread before we find the file we are looking for. This is not a big
+issue, however, as this list only contains files owned by the current thread,
+so it is typically small.
+
 >> B11: (2 marks)
 >> The default tid_t to pid_t mapping is the identity mapping. Did you change
 >> this? Why?
 
-We did not change the identity tid_t to pid_t mapping for simplicity.
+We did not change the identity tid_t to pid_t mapping for simplicity and also
+because there was no discernable advantage to creating a new mapping.
