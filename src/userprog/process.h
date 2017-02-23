@@ -18,8 +18,6 @@ struct process
     int return_status;                  /* Return status of the process. */
     int next_fd;                        /* Used to allocate the id for the next
                                            file descriptor. */
-//    bool has_waited;                    /* Checks if a process has already
-//                                           called wait on this thread */
     bool load_success;                  /* Checks if loading an executable was
                                            a success. */
     bool thread_dead;                   /* True if the thread is dead */
