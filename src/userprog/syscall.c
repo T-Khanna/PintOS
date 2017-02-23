@@ -102,7 +102,9 @@ static void sys_exec (struct intr_frame * f)
 {
   const char* cmd_line = (const char*) get_arg(f, 1);
   check_safe_string(cmd_line);
+  lock_acquire(&filesys_lock);
   f->eax = process_execute(cmd_line);
+  lock_release(&filesys_lock);
 }
 
 static void sys_wait (struct intr_frame * f)
@@ -144,8 +146,8 @@ static void sys_open(struct intr_frame * f)
   check_safe_string(name);
 
   /* allocate space for descriptor */
-  struct descriptor *desc = (struct descriptor *) malloc(sizeof(struct descriptor));
-  if (desc == NULL) {
+  struct descriptor* d = (struct descriptor*) malloc(sizeof(struct descriptor));
+  if (d == NULL) {
     goto exit;
   }
 
@@ -154,10 +156,10 @@ static void sys_open(struct intr_frame * f)
 
   if (file != NULL) {
     struct thread* t = thread_current();
-    desc->id = t->process->next_fd++;
-    desc->file = file;
-    fd = desc->id;
-    list_push_back(&t->descriptors, &desc->elem);
+    d->id = t->process->next_fd++;
+    d->file = file;
+    fd = d->id;
+    list_push_back(&t->descriptors, &d->elem);
   }
 
   lock_release(&filesys_lock);
