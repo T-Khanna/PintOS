@@ -137,9 +137,9 @@ struct process
                                         next file descriptor.
     bool load_success;                - Checks if loading an executable was a
                                         success. Used in the exec system call.
-    bool thread_dead;                 - True when the
-The shell's argument parsing can also be changed without requiring an OS update,
-which may also require an OS restart to take effect, wocess usually frees the
+    bool thread_dead;                 - True when the thread is dead. Used to
+                                        check if we need to free the process.
+    bool parent_dead;                 - The parent process usually frees the
                                         child, but if the child is orphaned,
                                         this is needed to free the child when
                                         it exits.
