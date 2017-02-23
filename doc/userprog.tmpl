@@ -278,6 +278,16 @@ the child process.
 >> code ensure this? How is the load success/failure status passed back to the
 >> thread that calls "exec"?
 
+We are using a semaphore to ensure synchronization between the parent and the
+child process. After the child thread is created we perform a sema_down call on
+the parent. This forces it to wait until the child calls sema_up when the
+load() call has finished. We set the load_success variable in the child to true
+if it successfully loaded or false if it did not. Because we set this variable
+before waking up the parent, we can check the child's load_success variable as
+the parent in process_execute(), at which point we can return -1 if load_success
+is false or the tid if load_success is true. After this, we just set the return
+value of the exec system call to the return value from process_execute().
+
 >> B8: (5 marks)
 >> Consider parent process P with child process C. How do you ensure proper
 >> synchronization and avoid race conditions when P calls wait(C) before or

@@ -72,7 +72,7 @@ process_execute (const char *command)
   struct process *child = get_process_by_tid(tid, &curr->child_processes);
   sema_down(&child->exec_sema);
 
-  return child->load_success ? tid : TID_ERROR;
+  return child->load_success ? tid : RET_ERROR;
 }
 
 /* initialize the struct process for the passed thread, as a child of the
@@ -277,7 +277,7 @@ process_wait (tid_t child_tid)
   struct process* child = get_process_by_tid(child_tid, &curr->child_processes);
 
   if (child == NULL || child->has_waited) {
-    return TID_ERROR;
+    return RET_ERROR;
   }
 
   child->has_waited = true;
