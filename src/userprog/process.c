@@ -89,7 +89,6 @@ init_process (struct thread *t) {
   proc->tid = t->tid;
   proc->return_status = RET_ERROR;
   proc->next_fd = 3;
-  proc->has_waited = false;
   proc->load_success = false;
   proc->thread_dead = false;
   proc->parent_dead = false;
@@ -229,6 +228,7 @@ static void push_args(struct intr_frame *if_, int argc, char **argv) {
   push_word((uint32_t *)0, if_);
 }
 
+/* Push a word to the stack referenced by if_ */
 static void push_word(uint32_t *word, struct intr_frame *if_) {
   if_->esp -= WORDSIZE;
   *((uint32_t**)if_->esp) = word;
@@ -247,6 +247,7 @@ static char* strcpy_stack(char *src, char *dst) {
   return dst;
 }
 
+/* Retrieve the process with the given tid from a list of processes */
 struct process*
 get_process_by_tid(tid_t tid, struct list* processes)
 {
@@ -280,13 +281,18 @@ process_wait (tid_t child_tid)
   struct thread* curr = thread_current();
   struct process* child = get_process_by_tid(child_tid, &curr->child_processes);
 
-  if (child == NULL || child->has_waited) {
+  if (child == NULL) {
     return TID_ERROR;
   }
 
-  child->has_waited = true;
   sema_down(&child->wait_sema);
-  return child->return_status;
+
+  // free resouces of the child process as they are no longer needed.
+  // as a side effect, this handles the case of double waiting.
+  list_remove(&child->child_elem);
+  int return_status = child->return_status;
+  free(child);
+  return return_status;
 }
 
 /* Kill the current process */
@@ -307,7 +313,8 @@ process_exit (void)
     file_close(cur->process->executable);
   }
 
-  /* free all of the child processes who's thread is no longer running */
+  /* notify all children that the parent thread is dead, and free all of the
+   * child processes whose thread is no longer running */
   while(!list_empty(&cur->child_processes)) {
     struct process* child = list_entry(list_pop_front(&cur->child_processes),
                                        struct process, child_elem);
@@ -325,9 +332,7 @@ process_exit (void)
     file_close(d->file);
     free(d);
   }
-
-  //TODO free all locks_held???
-
+  
   /* If this thread is orphaned, free it's process struct.
    * Otherwise, we need to notify the parent that this thread is exiting. */
   if (cur->process->parent_dead) {

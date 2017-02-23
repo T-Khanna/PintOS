@@ -224,11 +224,6 @@ static void sys_write(struct intr_frame * f)
   check_pointer_range(buffer, size);
 
   int bytes_written = 0;
-
-  /* TODO Need to check for invalid pointers (user memory access) and also
-   * keep track of the number of bytes written to console. */
-
-  /* NOTE: file_write() may be useful for keeping track of bytes written. */
   if (fd == STDOUT_FILENO) {
     putbuf(buffer, size);
     bytes_written = size;
@@ -333,10 +328,10 @@ static void check_pointer_range(const void *ptr, unsigned size)
   }
 }
 
+//TODO only check at page boundaries
 static bool check_safe_access(const void *ptr, unsigned size)
 {
-  /* Checks that the pointer is not null, not pointing to kernel memory
-   * and is mapped */
+  /* Checks that the pointer is not pointing to kernel memory and is mapped */
   struct thread *cur = thread_current();
   for (unsigned i = 0; i < size; i++) {
     if (!is_user_vaddr((const char *) ptr + i)

@@ -127,7 +127,7 @@ In userprog/process.h, added new structure 'struct process'. This structure is
 used to keep track of process information used by the system calls, even if the
 thread dies.
 
-struct process 
+struct process
   {
     tid_t tid;                        - Thread identifier that this process
                                         is associated with.
@@ -135,8 +135,6 @@ struct process
                                         for exit system call.
     int next_fd;                      - Counter used to allocate the id for the
                                         next file descriptor.
-    bool has_waited;                  - Checks if process_wait has already
-                                        successfully called on this process.
     bool load_success;                - Checks if loading an executable was a
                                         success. Used in the exec system call.
     bool thread_dead;                 - True when the thread is dead. Used to
@@ -184,7 +182,7 @@ In threads/thread.h, added the following members to 'struct thread'
 
 In syscall.c, added the following static variables
 
-  static struct lock filesys_lock; 
+  static struct lock filesys_lock;
 
   static void (*system_calls[]) (struct intr_frame *);
 
@@ -247,7 +245,7 @@ child process (initialised to a value of 0), which blocks the current thread
 until the child process exits.
 
 When the child process exits, the exit status is set through the exit system
-call. It then calls thread_exit(), which calls process_exit(). After freeing 
+call. It then calls thread_exit(), which calls process_exit(). After freeing
 all the resources no longer needed at this point, we up wait_sema of this
 process. This unblocks the parent and allows us to return the exit status of
 the child process.
@@ -299,7 +297,7 @@ exited before wait(C) is called, when we call sema_up on the child's wait
 semaphore in process_exit(), the value increases from the initial value of 0 to
 1. This means that when we down the semaphore in process_wait(), we don't block
 the thread. Instead we just return the return_status from the process. C's
-resources are freed in the same manner as Case 1.
+resources are freed immediately after we retrieve the exit status.
 
 Case 3: Parent terminates, without waiting, before C exits
 If the parent terminates before C exits, we cannot rely on C being freed by P
