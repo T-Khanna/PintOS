@@ -25,8 +25,8 @@ static void* get_arg(struct intr_frame *, int n);
 static struct lock filesys_lock;
 
 /* Function to lock and unlock file system access. */
-static void lock_filesys_access();
-static void unlock_filesys_access();
+static void lock_filesys_access(void);
+static void unlock_filesys_access(void);
 
 /* System call function declarations. */
 static void sys_halt(struct intr_frame *);
@@ -335,12 +335,12 @@ struct file *find_file (int fd)
   return NULL;
 }
 
-static void lock_filesys_access()
+static void lock_filesys_access(void)
 {
   lock_acquire(&filesys_lock);
 }
 
-static void unlock_filesys_access()
+static void unlock_filesys_access(void)
 {
   lock_release(&filesys_lock);
 }
