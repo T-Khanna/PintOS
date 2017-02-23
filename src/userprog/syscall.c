@@ -328,14 +328,18 @@ static void check_pointer_range(const void *ptr, unsigned size)
   }
 }
 
-//TODO only check at page boundaries
+/* Checks that the pointer is not pointing to kernel memory and is mapped */
 static bool check_safe_access(const void *ptr, unsigned size)
 {
-  /* Checks that the pointer is not pointing to kernel memory and is mapped */
+  /* check the initial pointer and the first byte on every new page in the
+   * block of memory we are checking */
   struct thread *cur = thread_current();
-  for (unsigned i = 0; i < size; i++) {
-    if (!is_user_vaddr((const char *) ptr + i)
-        || pagedir_get_page(cur->pagedir, (const char *) ptr + i) == NULL) {
+  const void const* base = ptr;
+  for (;
+       ptr <= base + size;
+       ptr = ptr - ((uintptr_t) ptr % PGSIZE) + PGSIZE + 1) {
+    if (!is_user_vaddr(ptr)
+        || pagedir_get_page(cur->pagedir, ptr) == NULL) {
       return false;
     }
   }
