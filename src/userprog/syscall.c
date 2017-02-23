@@ -366,8 +366,7 @@ static bool check_safe_access(const void *ptr, unsigned size)
   /* Check the initial pointer and the first byte on every new page in the
      block of memory we are checking. */
   struct thread *cur = thread_current();
-  const void const* base = ptr;
-  for (;
+  for (const void const* base = ptr;
        ptr <= base + size;
        ptr = ptr - ((uintptr_t) ptr % PGSIZE) + PGSIZE + 1) {
     if (!is_user_vaddr(ptr)
