@@ -213,6 +213,25 @@ point to different files compared to another process.
 >> Describe how your code ensures safe memory access of user provided data from
 >> within the kernel.
 
+Every pointer to memory passed by the user needs to be checked, as it cannot be 
+null, cannot reference kernel reserved memory and needs to be mapped. The 
+function check_safe_access(const void *, unsigned) takes the pointer which has
+to be checked, and the range of pointers that need to be checked - for example
+in a buffer. The function loops over the range, considering also the case in
+which the buffer happens to span over different pages, and calls is_user_vaddr
+and pagedir_get_page to check the conditions stated above.
+
+The function check_safe_access is called by two other functions, basing on
+whether a single pointer or a buffer needs to be checked: check_pointer passes
+the pointer and the unsigned value 1, for example after a call from 
+syscall_handler, whereas check_pointer_range passes the pointer and the range 
+to check, for example after a call from sys_write. Both of them call 
+process_kill() if the called function returns false.
+
+Strings passed to functions like sys_open or sys_create are also checked by
+check_safe_string, which makes sure that the whole string is inside valid
+user memory, otherwise it kills the process.
+
 >> B4: (5 marks)
 >> Suppose a system call passes the kernel a pointer to a full page
 >> (4,096 bytes) of data that has to be copied from user space. What is the
@@ -268,6 +287,24 @@ own process struct.
 >> that all temporarily allocated resources (locks, buffers, etc.) are freed?
 >> In a paragraph, describe the strategy or strategies you adopted for managing
 >> these issues.
+
+We avoided having duplication in our pointer checking functions and obscuring
+the primary function of the system calls by factoring out check_safe_address.
+The error-handling code in each system call is therefore limited to only one
+line for the call of check_pointer, check_pointer_range or check_safe_string.
+Additionally, all arguments are also checked initially by get_arg, when every
+system call gets the arguments pushed to the stack.
+
+When a pointer is not valid and check_safe_access returns false, process_kill
+is called, which calls in chain exit(-1), thread_exit() and process_exit(). In
+this last function all the resources allocated are freed: in our code we use
+malloc to save descriptors and process structs, and here free() is called
+iteratively on the two lists containing them. Open files, which are tracked in
+the descriptor struct, are also closed.
+
+We do not allocate buffers or acquire locks - for example filesys_lock - in
+places where a process could be killed before they get released, as all the
+memory check occurs before acquiring them.
 
 ---- SYNCHRONIZATION ----
 
@@ -325,6 +362,14 @@ C's resources are freed in the same manner as Case 1.
 >> B9: (5 marks)
 >> Why did you choose to implement safe access of user memory from the kernel in
 >> the way that you did?
+
+We have decided to follow the recommended simpler approach, with a call to 
+pagedir_get_page(), which allows us to reuse code already present and to factor
+out memory checking and error handling. Although being slower in most cases,
+this solution prevents the execution of expensive operations on buffers, which
+might fail only at the end of it: for example a buffer could be copied but fail
+only on the last byte; however the whole copying process would not start if
+memory is checked fully first and the process is killed in case errors occur.
 
 >> B10: (5 marks)
 >> What advantages or disadvantages can you see to your design for file
