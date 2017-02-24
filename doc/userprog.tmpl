@@ -194,18 +194,19 @@ the system call number given in the interrupt frame to the correct system call.
 >> Describe how you associate file descriptors with open files. Are your file
 >> descriptors unique within the entire OS or just within a single process?
 
-We use the 'struct process' member next_fd, which simply increments whenever we
-open a new file. After retrieving this newly generated value, we also add a
-pointer to the new file into the descriptor structure, effectively creating a
-mapping between the id and the file.
+When we open a file, we create a decriptor struct with the next sequential
+descriptor number for this process, and the file pointer. This is the mapping
+between descriptors and open files, which are kept in a list belonging to the
+process.
 
-Each thread has a list of 'struct descriptor' members. We use the mapping
-described above to access the correct file in this list.
+When we need to access this file, we search the thread's list of file
+descriptors to find the matching entry.
 
-As we access the next_fd counter from within the process structure, our file
-descriptors are unique within a single process. It is possible (and in fact
-likely) that different processes will have identical file descriptors which
-point to different files compared to another process.
+As the file descriptor numbers increase sequentially each time an individual
+process opens a file, our file descriptors are unique only within a single
+process. It is possible (and in fact likely) that different processes will have
+identical file descriptors which point to (possibly) different files, compared
+to another process.
 
 ---- ALGORITHMS ----
 
@@ -213,18 +214,23 @@ point to different files compared to another process.
 >> Describe how your code ensures safe memory access of user provided data from
 >> within the kernel.
 
-Every pointer to memory passed by the user needs to be checked, as it cannot be 
-null, cannot reference kernel reserved memory and needs to be mapped. The 
-function check_safe_access(const void *, unsigned) takes the pointer which has
-to be checked, and the range of pointers that need to be checked - for example
-in a buffer. The function loops over the range, considering also the case in
-which the buffer happens to span over different pages, and calls is_user_vaddr
-and pagedir_get_page to check the conditions stated above.
+Every pointer to memory passed by the user needs shouldn't be null, cannot
+reference kernel reserved memory and needs to be mapped. The function
+check_safe_access(const void *, unsigned) takes the pointer which has to be
+checked, and the size of the range that needs to be checked - for example in a
+buffer. The function loops over the range, checking the the inital pointer is
+valid and mapped, and the start of every page in the range is also mapped.
+
+It does not check every pointer in the range is mapped individually because
+memory is allocated to user processes in minimum units of a page, which we
+assume is aligned, so if the start of the page is mapped, then the entire page
+is also. Doing this vastly reduces the number of times we need to inspect the
+page table.
 
 The function check_safe_access is called by two other functions, basing on
 whether a single pointer or a buffer needs to be checked: check_pointer passes
-the pointer and the unsigned value 1, for example after a call from 
-syscall_handler, whereas check_pointer_range passes the pointer and the range 
+the pointer and the unsigned value 1, for example after a call from
+syscall_handler, whereas check_pointer_range passes the pointer and the range
 to check, for example after a call from sys_write. If the conditions fail,
 check_safe_access calls process_kill().
 
@@ -240,13 +246,7 @@ user memory, otherwise the process is killed in a similar way.
 >> call that passes a pointer to only 2 bytes of data? How might you improve
 >> these numbers?
 
-Our system of checking user memory is to check pointers for safety before we
-access them, rather than using the pagefault handler. However, we use use the
-fact that memory is allocated to user processes in pages (aligned to the page
-size) to check the initial pointer, and then the start of every page until the
-end of the block of memory to check.
-
-So, if we wish to copy a full page (e.g. in the write system call), the least
+If we wish to copy a full page (e.g. in the write system call), the least
 number of inspections of the page table is just 1 if the page is aligned.
 However, if this block of memory lies across a page boundary, we make 2
 inspections of the page table.
@@ -256,7 +256,10 @@ page table is 1, however if we are very unlucky and the second byte is on the
 next page after the first byte, we will have to inspect the page table twice.
 
 We could improve these numbers by checking user memory using the pagefault
-handler method, because then we would make 0 inspections to the page table.
+handler method, because then we would make 0 inspections to the page table,
+however we would have a lot of function call overhead, because we would need to
+make one call for every byte we copy or write to user memory, using the page
+fault handler as described in the specification.
 
 >> B5: (8 marks)
 >> Describe your implementation of the "wait" system call and how it interacts
@@ -381,7 +384,7 @@ C's resources are freed in the same manner as Case 1.
 >> Why did you choose to implement safe access of user memory from the kernel in
 >> the way that you did?
 
-We have decided to follow the recommended simpler approach, with a call to 
+We have decided to follow the recommended simpler approach, with a call to
 pagedir_get_page(), which allows us to reuse code already present and to factor
 out memory checking and error handling. Although being slower in most cases,
 this solution prevents the execution of expensive operations on buffers, which
