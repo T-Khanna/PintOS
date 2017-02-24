@@ -221,6 +221,24 @@ point to different files compared to another process.
 >> call that passes a pointer to only 2 bytes of data? How might you improve
 >> these numbers?
 
+Our system of checking user memory is to check pointers for safety before we
+access them, rather than using the pagefault handler. However, we use use the
+fact that memory is allocated to user processes in pages (aligned to the page
+size) to check the initial pointer, and then the start of every page until the
+end of the block of memory to check.
+
+So, if we wish to copy a full page (e.g. in the write system call), the least
+number of inspections of the page table is just 1 if the page is aligned.
+However, if this block of memory lies across a page boundary, we make 2
+inspections of the page table.
+
+Similarly, if we wish to copy 2 bytes, the least number of inspections of the
+page table is 1, however if we are very unlucky and the second byte is on the
+next page after the first byte, we will have to inspect the page table twice.
+
+We could improve these numbers by checking user memory using the pagefault
+handler method, because then we would make 0 inspections to the page table.
+
 >> B5: (8 marks)
 >> Describe your implementation of the "wait" system call and how it interacts
 >> with process termination for both the parent and child.
