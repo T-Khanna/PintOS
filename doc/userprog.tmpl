@@ -225,12 +225,12 @@ The function check_safe_access is called by two other functions, basing on
 whether a single pointer or a buffer needs to be checked: check_pointer passes
 the pointer and the unsigned value 1, for example after a call from 
 syscall_handler, whereas check_pointer_range passes the pointer and the range 
-to check, for example after a call from sys_write. Both of them call 
-process_kill() if the called function returns false.
+to check, for example after a call from sys_write. If the conditions fail,
+check_safe_access calls process_kill().
 
 Strings passed to functions like sys_open or sys_create are also checked by
 check_safe_string, which makes sure that the whole string is inside valid
-user memory, otherwise it kills the process.
+user memory, otherwise the process is killed in a similar way.
 
 >> B4: (5 marks)
 >> Suppose a system call passes the kernel a pointer to a full page
