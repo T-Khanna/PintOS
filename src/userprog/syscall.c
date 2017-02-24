@@ -382,13 +382,17 @@ static bool check_safe_access(const void *ptr, unsigned size)
 static void check_safe_string(const char *str)
 {
   struct thread *cur = thread_current();
-  int i = 0;
-  while (is_user_vaddr(str + i)
-      && pagedir_get_page(cur->pagedir, str + i) != NULL) {
-    if (*(str + i) == '\0') {
-      return;
+  /* outer loop checks that a page is valid every time we enter a new page */
+  while (is_user_vaddr(str)
+      && pagedir_get_page(cur->pagedir, str) != NULL) {
+    /* inner loop checks for a null terminator */
+    while((uintptr_t) str % PGSIZE != 0) {
+      if (*str == '\0') {
+        return;
+      }
+      str++;
     }
-    i++;
+    str++;
   }
 
   /* Encountered a bad address before string termination. */
