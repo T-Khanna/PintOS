@@ -364,7 +364,7 @@ static void check_safe_access(const void *ptr, unsigned size)
   struct thread *cur = thread_current();
   for (const void const* base = ptr;
        ptr <= base + size;
-       ptr = ptr - ((uintptr_t) ptr % PGSIZE) + PGSIZE + 1) {
+       ptr = pg_round_down(ptr + PGSIZE)) {
     if (!is_user_vaddr(ptr)
         || pagedir_get_page(cur->pagedir, ptr) == NULL) {
       process_kill();
