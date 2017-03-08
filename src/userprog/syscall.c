@@ -42,6 +42,8 @@ static void sys_write(struct intr_frame *);
 static void sys_seek(struct intr_frame *);
 static void sys_tell(struct intr_frame *);
 static void sys_close(struct intr_frame *);
+static void sys_mmap(struct intr_frame *);
+static void sys_munmap(struct intr_frame *);
 
 /* Functions to ensure safe user memory access. */
 static void check_safe_access(const void *ptr, unsigned size);
@@ -57,7 +59,7 @@ static void check_safe_string(const char *str);
 static void (*system_calls[]) (struct intr_frame *) = {
   &sys_halt, &sys_exit, &sys_exec, &sys_wait, &sys_create, &sys_remove,
   &sys_open, &sys_filesize, &sys_read, &sys_write, &sys_seek, &sys_tell,
-  &sys_close
+  &sys_close, &sys_mmap, &sys_munmap
 };
 
 void
@@ -316,6 +318,21 @@ static void sys_close(struct intr_frame * f)
 
   unlock_filesys_access();
 
+}
+
+static void sys_mmap(struct intr_frame * f)
+{
+  int fd = (int) get_arg(f, 1);
+  void* addr = get_arg(f, 2);
+  int mapid = 0;
+  //TODO
+  f->eax = mapid;
+}
+
+static void sys_munmap(struct intr_frame * f)
+{
+  mapid_t mapping = (mapid_t) get_arg(f, 1);
+  //TODO
 }
 
 /******************************
