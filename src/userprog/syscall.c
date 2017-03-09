@@ -324,7 +324,7 @@ static void sys_mmap(struct intr_frame * f)
 {
   int fd = (int) get_arg(f, 1);
   void* addr = get_arg(f, 2);
-  int mapid = 0;
+  mapid_t mapid = 0;
   //TODO
   f->eax = mapid;
 }
