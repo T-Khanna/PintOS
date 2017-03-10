@@ -153,6 +153,36 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
+
+
+  /* 1. Locate page that faulted in SPT. If memory reference is valid, use the
+   *    SPT entry to locate data that goes in the page, checking page_status_t
+   *    for all appropriate cases.
+   *
+   *    If the SPT indicates that the user process should not expect any data
+   *    at fault_addr (not_present == true?), or if the page lies within kernel
+   *    memory (user == false), or if access is an attempt to write to a 
+   *    read-only page (write == false), terminate the process.
+   *
+   */
+
+  /* 2. Get a frame from the frame table to store the page. If data is already
+   *    in a frame, it needs to be located.
+   */
+
+  /* 3. Fetch data into the frame, the method depending on the page_status_t.
+   *    If data is already in a frame, we skip this step.
+   */
+
+  /* 4. Point page entry for faulting virtual address to the frame.
+   *
+   *    pagedir_set_page(thread_current()->pagedir, fault_addr, #frame_vaddr#, write);
+   */
+
+
+
+
+  /* TODO: Delete this after implementing the above. */
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
