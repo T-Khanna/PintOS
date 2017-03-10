@@ -160,10 +160,15 @@ page_fault (struct intr_frame *f)
    *    for all appropriate cases.
    *
    *    If the SPT indicates that the user process should not expect any data
-   *    at fault_addr (not_present == true?), or if the page lies within kernel
-   *    memory (user == false), or if access is an attempt to write to a 
-   *    read-only page (write == false), terminate the process.
+   *    at fault_addr (retrieved_page == NULL?), or if the page lies within
+   *    kernel memory (user == false), or if access is an attempt to write to
+   *    a read-only page (not_present == false?), terminate the process.
    *
+   *    retrieved_page = get_page(fault_addr);
+   *    if (retrieved_page == NULL || !user || !not_present) {
+   *      process_kill();
+   *      kill(f);
+   *    }
    */
 
   /* 2. Get a frame from the frame table to store the page. If data is already
