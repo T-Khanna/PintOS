@@ -44,7 +44,7 @@ static void sys_tell(struct intr_frame *);
 static void sys_close(struct intr_frame *);
 
 /* Functions to ensure safe user memory access. */
-static bool check_safe_access(const void *ptr, unsigned size);
+static void check_safe_access(const void *ptr, unsigned size);
 static void check_pointer(const void *ptr);
 static void check_pointer_range(const void *ptr, unsigned size);
 static void check_safe_string(const char *str);
@@ -347,35 +347,29 @@ static void unlock_filesys_access(void)
 
 static void check_pointer(const void *ptr)
 {
-  if (!check_safe_access(ptr, 1)) {
-    process_kill();
-  }
+  check_safe_access(ptr, 1);
 }
 
 
 static void check_pointer_range(const void *ptr, unsigned size)
 {
-  if (!check_safe_access(ptr, size)) {
-    process_kill();
-  }
+  check_safe_access(ptr, size);
 }
 
 /* Checks that the pointer is not pointing to kernel memory and is mapped. */
-static bool check_safe_access(const void *ptr, unsigned size)
+static void check_safe_access(const void *ptr, unsigned size)
 {
   /* Check the initial pointer and the first byte on every new page in the
      block of memory we are checking. */
   struct thread *cur = thread_current();
-  const void const* base = ptr;
-  for (;
+  for (const void const* base = ptr;
        ptr <= base + size;
-       ptr = ptr - ((uintptr_t) ptr % PGSIZE) + PGSIZE + 1) {
+       ptr = pg_round_down(ptr + PGSIZE)) {
     if (!is_user_vaddr(ptr)
         || pagedir_get_page(cur->pagedir, ptr) == NULL) {
-      return false;
+      process_kill();
     }
   }
-  return true;
 }
 
 /* Checks the entirety of a string is in valid user memory.
@@ -383,13 +377,17 @@ static bool check_safe_access(const void *ptr, unsigned size)
 static void check_safe_string(const char *str)
 {
   struct thread *cur = thread_current();
-  int i = 0;
-  while (is_user_vaddr(str + i)
-      && pagedir_get_page(cur->pagedir, str + i) != NULL) {
-    if (*(str + i) == '\0') {
-      return;
+  /* outer loop checks that a page is valid every time we enter a new page */
+  while (is_user_vaddr(str)
+      && pagedir_get_page(cur->pagedir, str) != NULL) {
+    /* inner loop checks for a null terminator */
+    while((uintptr_t) str % PGSIZE != 0) {
+      if (*str == '\0') {
+        return;
+      }
+      str++;
     }
-    i++;
+    str++;
   }
 
   /* Encountered a bad address before string termination. */

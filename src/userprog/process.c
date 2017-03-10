@@ -75,11 +75,11 @@ process_execute (const char *command)
   return child->load_success ? tid : RET_ERROR;
 }
 
-/* initialize the struct process for the passed thread, as a child of the
- * current thread. Returns false if we failed to allocate space. */
+/* Initialize the struct process for the passed thread, as a child of the
+   current thread. Returns false if we failed to allocate space. */
 bool
 init_process (struct thread *t) {
-  /* allocate memory for the struct process */
+  /* Allocate memory for the struct process. */
   struct process *proc = (struct process *) malloc(sizeof(struct process));
 
   if (proc == NULL) {
@@ -99,20 +99,19 @@ init_process (struct thread *t) {
 
   list_push_back(&thread_current()->child_processes, &proc->child_elem);
 
-  /* process is now initialized fully */
+  /* Process is now initialized fully. */
   t->process = proc;
   return true;
 }
 
-/* A thread function that loads a user command and starts it
-   running. */
+/* A thread function that loads a user command and starts it running. */
 static void
 start_process (void *command_)
 {
   struct thread* t = thread_current();
   char *cmd = command_;
 
-  /* ensure <= 200 arguments */
+  /* Ensure <= 200 arguments. */
   int argc = count_args(cmd);
   if (argc > MAX_ARGS) {
     palloc_free_page (cmd);
@@ -121,7 +120,7 @@ start_process (void *command_)
     process_kill();
   }
 
-  /* tokenize command */
+  /* Tokenize command. */
   char *argv[argc];
   char *file_name;
   read_args(argv, &file_name, cmd);
@@ -137,7 +136,7 @@ start_process (void *command_)
   t->process->load_success = success;
   sema_up(&t->process->exec_sema);
 
-  /* put arguments onto stack if we loaded the file sucessfully */
+  /* Put arguments onto stack if we loaded the file sucessfully. */
   if (success) {
     push_args(&if_, argc, argv);
   }
@@ -159,9 +158,9 @@ start_process (void *command_)
   NOT_REACHED ();
 }
 
-/* returns the number of arguments in a command (including program name) */
+/* Returns the number of arguments in a command (including program name). */
 static int count_args(char* command_) {
-  /* make a local copy of the command to avoid modification */
+  /* Make a local copy of the command to avoid modification. */
   int cmd_size = strlen(command_) + 1;
   char cmd[cmd_size];
   strlcpy(cmd, command_, cmd_size);
@@ -178,13 +177,13 @@ static int count_args(char* command_) {
   return argc;
 }
 
-/* splits the command into space separated tokens, and put them in the array
- * argv. Also puts the first token into file_name. */
+/* Splits the command into space separated tokens, and put them in the array
+   argv. Also puts the first token into file_name. */
 static void read_args(char **argv, char **file_name, char* cmd) {
   char *token, *save_ptr;
-  /* read the first argument (the file name) */
+  /* Read the first argument (the file name). */
   *file_name = argv[0] = strtok_r(cmd, " ", &save_ptr);
-  /* tokenise the arguments and load into argv */
+  /* Tokenise the arguments and load into argv. */
   int i = 1;
   for (
     token = strtok_r(NULL, " ", &save_ptr);
@@ -195,36 +194,36 @@ static void read_args(char **argv, char **file_name, char* cmd) {
     }
 }
 
-/* pushes the arguments held in argv onto the stack referenced by if_ */
+/* Pushes the arguments held in argv onto the stack referenced by if_.*/
 static void push_args(struct intr_frame *if_, int argc, char **argv) {
   uint32_t *arg_starts[argc];
   int cur_arg;
 
-  /* copy the argument strings onto the stack in reverse order */
+  /* Copy the argument strings onto the stack in reverse order. */
   for (cur_arg = argc - 1; cur_arg >= 0; cur_arg--) {
     if_->esp = strcpy_stack(argv[cur_arg], if_->esp);
     arg_starts[cur_arg] = if_->esp;
   }
 
-  /* word align the stack pointer. */
+  /* Word align the stack pointer. */
   if_->esp -= (uint32_t)if_->esp % WORDSIZE;
 
-  /* push a null pointer (sentinel) so that argv[argc] == 0 */
+  /* Push a null pointer (sentinel) so that argv[argc] == 0. */
   push_word(NULL, if_);
 
-  /* push pointers to arguments in reverse order */
+  /* Push pointers to arguments in reverse order. */
   for (cur_arg = argc - 1; cur_arg >= 0; cur_arg--) {
     push_word(arg_starts[cur_arg], if_);
   }
 
-  /* push a pointer to the first pointer (argv) */
+  /* Push a pointer to the first pointer (argv). */
   push_word(if_->esp, if_);
 
-  /* push the number of arguments (argc).
-   * cast argc to a uint32_t* because push_word works with those (hacky)*/
+  /* Push the number of arguments (argc). Cast argc to a uint32_t*
+     because push_word works with those. */
   push_word((uint32_t *)argc, if_);
 
-  /* push a fake return address (0) */
+  /* Push a fake return address (0). */
   push_word((uint32_t *)0, if_);
 }
 
@@ -234,20 +233,20 @@ static void push_word(uint32_t *word, struct intr_frame *if_) {
   *((uint32_t**)if_->esp) = word;
 }
 
-/* copy a string backwards from src to dst.
- * Returns the next free location on the stack after the end of the string */
+/* Copy a string backwards from src to dst. Returns the next free
+   location on the stack after the end of the string. */
 static char* strcpy_stack(char *src, char *dst) {
   int i;
-  /* make i point to the end of the string (\0 char) */
+  /* Make i point to the end of the string (\0 char). */
   for (i = 0; src[i] != '\0'; i++);
-  /* copy backwards into dst */
+  /* Copy backwards into dst. */
   for (; i>=0; i--) {
     *(--dst) = src[i];
   }
   return dst;
 }
 
-/* Retrieve the process with the given tid from a list of processes */
+/* Retrieve the process with the given tid from a list of processes. */
 struct process*
 get_process_by_tid(tid_t tid, struct list* processes)
 {
@@ -287,15 +286,15 @@ process_wait (tid_t child_tid)
 
   sema_down(&child->wait_sema);
 
-  // free resouces of the child process as they are no longer needed.
-  // as a side effect, this handles the case of double waiting.
+  /* Free resouces of the child process as they are no longer needed.
+     As a side effect, this handles the case of double waiting. */
   list_remove(&child->child_elem);
   int return_status = child->return_status;
   free(child);
   return return_status;
 }
 
-/* Kill the current process */
+/* Kill the current process. */
 void
 process_kill(void)
 {
@@ -313,8 +312,8 @@ process_exit (void)
     file_close(cur->process->executable);
   }
 
-  /* notify all children that the parent thread is dead, and free all of the
-   * child processes whose thread is no longer running */
+  /* Notify all children that the parent thread is dead, and free all of the
+   * child processes whose thread is no longer running. */
   while(!list_empty(&cur->child_processes)) {
     struct process* child = list_entry(list_pop_front(&cur->child_processes),
                                        struct process, child_elem);
@@ -324,7 +323,7 @@ process_exit (void)
     }
   }
 
-  /* close all of the currently open files and free their descriptors */
+  /* Close all of the currently open files and free their descriptors. */
   while (!list_empty(&thread_current()->descriptors)) {
     struct descriptor *d = list_entry(
             list_pop_front(&thread_current()->descriptors),
@@ -333,8 +332,8 @@ process_exit (void)
     free(d);
   }
 
-  /* If this thread is orphaned, free it's process struct.
-   * Otherwise, we need to notify the parent that this thread is exiting. */
+  /* If this thread is orphaned, free it's process struct. Otherwise, we need
+     to notify the parent that this thread is exiting. */
   if (cur->process->parent_dead) {
     free(cur->process);
   } else {
@@ -553,6 +552,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
+  /* Set executable in process to the file pointer and deny any writes
+     to the running executable. */
   t->process->executable = file;
   file_deny_write(t->process->executable);
 

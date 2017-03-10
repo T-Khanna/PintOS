@@ -219,6 +219,7 @@ lock_acquire (struct lock *lock)
   /* Sets the lock_to_acquire field to the current lock. This field is checked
    * for the recursive call of thread_update_effective_priority and in
    * sema_down to check the call comes from a thread waiting for a lock. */
+  enum intr_level old_level = intr_disable();
   if (!thread_mlfqs) {
     thread_current()->lock_to_acquire = lock;
   }
@@ -232,6 +233,7 @@ lock_acquire (struct lock *lock)
     lock->holder->lock_to_acquire = NULL;
     list_push_back(&lock->holder->locks_held, &lock->lock_elem);
   }
+  intr_set_level(old_level);
 
 }
 

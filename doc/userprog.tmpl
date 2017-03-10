@@ -194,24 +194,49 @@ the system call number given in the interrupt frame to the correct system call.
 >> Describe how you associate file descriptors with open files. Are your file
 >> descriptors unique within the entire OS or just within a single process?
 
-We use the 'struct process' member next_fd, which simply increments whenever we
-open a new file. After retrieving this newly generated value, we also add a
-pointer to the new file into the descriptor structure, effectively creating a 
-mapping between the id and the file.
+When we open a file, we create a decriptor struct with the next sequential
+descriptor number for this process, and the file pointer. This is the mapping
+between descriptors and open files, which are kept in a list belonging to the
+process.
 
-Each thread has a list of 'struct descriptor' members. We use the mapping
-described above to access the correct file in this list.
+When we need to access this file, we search the thread's list of file
+descriptors to find the matching entry.
 
-As we access the next_fd counter from within the process structure, our file 
-descriptors are unique within a single process. It is possible (and in fact
-likely) that different processes will have identical file descriptors which
-point to different files compared to another process.
+As the file descriptor numbers increase sequentially each time an individual
+process opens a file, our file descriptors are unique only within a single
+process. It is possible (and in fact likely) that different processes will have
+identical file descriptors which point to (possibly) different files, compared
+to another process.
 
 ---- ALGORITHMS ----
 
 >> B3: (5 marks)
 >> Describe how your code ensures safe memory access of user provided data from
 >> within the kernel.
+
+Every pointer to memory passed by the user needs shouldn't be null, cannot
+reference kernel reserved memory and needs to be mapped. The function
+check_safe_access(const void *, unsigned) takes the pointer which has to be
+checked, and the size of the range that needs to be checked - for example in a
+buffer. The function loops over the range, checking the the inital pointer is
+valid and mapped, and the start of every page in the range is also mapped.
+
+It does not check every pointer in the range is mapped individually because
+memory is allocated to user processes in minimum units of a page, which we
+assume is aligned, so if the start of the page is mapped, then the entire page
+is also. Doing this vastly reduces the number of times we need to inspect the
+page table.
+
+The function check_safe_access is called by two other functions, basing on
+whether a single pointer or a buffer needs to be checked: check_pointer passes
+the pointer and the unsigned value 1, for example after a call from
+syscall_handler, whereas check_pointer_range passes the pointer and the range
+to check, for example after a call from sys_write. If the conditions fail,
+check_safe_access calls process_kill().
+
+Strings passed to functions like sys_open or sys_create are also checked by
+check_safe_string, which makes sure that the whole string is inside valid
+user memory, otherwise the process is killed in a similar way.
 
 >> B4: (5 marks)
 >> Suppose a system call passes the kernel a pointer to a full page
@@ -221,42 +246,55 @@ point to different files compared to another process.
 >> call that passes a pointer to only 2 bytes of data? How might you improve
 >> these numbers?
 
+If we wish to copy a full page (e.g. in the write system call), the least
+number of inspections of the page table is just 1 if the page is aligned.
+However, if this block of memory lies across a page boundary, we make 2
+inspections of the page table.
+
+Similarly, if we wish to copy 2 bytes, the least number of inspections of the
+page table is 1, however if we are very unlucky and the second byte is on the
+next page after the first byte, we will have to inspect the page table twice.
+
+We could improve these numbers by checking user memory using the pagefault
+handler method, because then we would make 0 inspections to the page table,
+however we would have a lot of function call overhead, because we would need to
+make one call for every byte we copy or write to user memory, using the page
+fault handler as described in the specification.
+
 >> B5: (8 marks)
 >> Describe your implementation of the "wait" system call and how it interacts
 >> with process termination for both the parent and child.
 
 When the "wait" system call is called, we call process_wait. In process_wait,
-we get the child process by calling the get_process_by_tid() function, passing
-in the child_tid and the child_processes from the current thread. If we don't
-find the child process, either the process corresponding to the tid is not a
-direct child or it has been terminated by the kernel, or the child_tid is
-invalid. In all of these cases, get_process_by_tid() will return NULL. If the
-child thread has terminated before we call process_wait(), the process
+we get the child process by searching the list of child processes of the current
+thread. If we don't find the child process, either the process corresponding to
+the tid is not a direct child, it has been terminated by the kernel, the
+child_tid is invalid, or the parent has already waited on the child and it's
+process has been removed from the list of child processes. In all of these
+cases, get_process_by_tid() will return NULL, and we immediately return -1 to
+inidcate an error.
+
+If we got the child process successfully (i.e. it's not NULL), then we are ok
+to wait on it, so we down the semaphore wait_sema (initialized to 0), which
+blocks us until the child process has finished executing. Either the child was
+not finished executing when we downed the semaphore, in which case we waited
+until the child upped the semaphore upon exiting, or it already finshed and
+upped the semaphore before, in which case the semaphore's value is now 1 and we
+downed it immediately.
+
+If the child thread has terminated before we call process_wait(), the process
 associated with the child thread remains on the list of child_processes of the
-parent thread, so we are still able to retrieve the exit status of the child.
+parent thread, so we are still able to retrieve the exit status of the child. We
+free these dead child processes when the parent exits.
 
-We now check if we need to wait for the process. In the cases mentioned above,
-we can check for these by simply checking if the process pointer is NULL. In
-the other case where process_wait() has already been successfully called on the
-child_tid, we check if the has_waited member in the process is set. If either of
-these conditions is true, we immediately return -1 without waiting for the
-process.
-
-After this, process_wait() has been successfully called on the child_tid, so we
-set the has_waited member of the child to true. We then down wait_sema in the
-child process (initialised to a value of 0), which blocks the current thread
-until the child process exits.
-
-When the child process exits, the exit status is set through the exit system
+When a process exits, the exit status is set through the exit system
 call. It then calls thread_exit(), which calls process_exit(). After freeing
 all the resources no longer needed at this point, we up wait_sema of this
-process. This unblocks the parent and allows us to return the exit status of
-the child process.
-
-When the parent terminates, the child process no longer needs to be kept as the
-parent is not waiting for it anymore. We use the parent_dead variable to keep
-track of when a child is alive and its parent is dead. In this case, we free
-the child process.
+process. This unblocks the parent if it is waiting and allows us to return the
+exit status of the child process. At this point, we also notify all children of
+this process that they are ophaned i.e. their parent (the process exiting) is
+dead, and if this processes is orphaned (it's parent is dead), it frees it's
+own process struct.
 
 >> B6: (5 marks)
 >> Any access to user program memory at a user-specified address can fail due to
@@ -270,6 +308,24 @@ the child process.
 >> that all temporarily allocated resources (locks, buffers, etc.) are freed?
 >> In a paragraph, describe the strategy or strategies you adopted for managing
 >> these issues.
+
+We avoided having duplication in our pointer checking functions and obscuring
+the primary function of the system calls by factoring out check_safe_address.
+The error-handling code in each system call is therefore limited to only one
+line for the call of check_pointer, check_pointer_range or check_safe_string.
+Additionally, all arguments are also checked initially by get_arg, when every
+system call gets the arguments pushed to the stack.
+
+When a pointer is not valid and check_safe_access returns false, process_kill
+is called, which calls in chain exit(-1), thread_exit() and process_exit(). In
+this last function all the resources allocated are freed: in our code we use
+malloc to save descriptors and process structs, and here free() is called
+iteratively on the two lists containing them. Open files, which are tracked in
+the descriptor struct, are also closed.
+
+We do not allocate buffers or acquire locks - for example filesys_lock - in
+places where a process could be killed before they get released, as all the
+memory check occurs before acquiring them.
 
 ---- SYNCHRONIZATION ----
 
@@ -327,6 +383,14 @@ C's resources are freed in the same manner as Case 1.
 >> B9: (5 marks)
 >> Why did you choose to implement safe access of user memory from the kernel in
 >> the way that you did?
+
+We have decided to follow the recommended simpler approach, with a call to
+pagedir_get_page(), which allows us to reuse code already present and to factor
+out memory checking and error handling. Although being slower in most cases,
+this solution prevents the execution of expensive operations on buffers, which
+might fail only at the end of it: for example a buffer could be copied but fail
+only on the last byte; however the whole copying process would not start if
+memory is checked fully first and the process is killed in case errors occur.
 
 >> B10: (5 marks)
 >> What advantages or disadvantages can you see to your design for file
