@@ -15,6 +15,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "vm/page.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -676,6 +677,9 @@ init_thread (struct thread *t, const char *name, int priority)
   #ifdef USERPROG
   list_init(&t->descriptors);
   list_init(&t->child_processes);
+  if (t->tid > 1) {
+    supp_page_table_init(&t->supp_page_table);
+  }
   #endif
 
   old_level = intr_disable ();
