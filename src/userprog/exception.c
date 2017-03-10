@@ -3,8 +3,11 @@
 #include <stdio.h>
 #include "userprog/gdt.h"
 #include "userprog/syscall.h"
+#include "userprog/process.h"
+#include "threads/vaddr.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -154,6 +157,30 @@ page_fault (struct intr_frame *f)
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
 
+  /* Check if fault address is in the kernel space or if it is attempting to
+     write to a read-only page. */
+  if (!is_user_vaddr(fault_addr) || !not_present) {
+    process_kill();
+  }
+
+  struct thread* t = thread_current();
+  struct supp_page_table_entry* supp_page
+    = supp_page_table_get(&t->supp_page_table, fault_addr);
+
+  if (supp_page == NULL) {
+    process_kill();
+  } else {
+    switch (supp_page->status) {
+      case LOADED:
+        PANIC("There should be no page fault from page already in memory.");
+        break;
+      case ZEROED:
+      case EXEC_LAZY:
+      case SWAPPED:
+      default:
+        NOT_REACHED();
+    }
+  }
 
   /* 1. Locate page that faulted in SPT. If memory reference is valid, use the
    *    SPT entry to locate data that goes in the page, checking page_status_t
@@ -161,11 +188,12 @@ page_fault (struct intr_frame *f)
    *
    *    If the SPT indicates that the user process should not expect any data
    *    at fault_addr (retrieved_page == NULL?), or if the page lies within
-   *    kernel memory (user == false), or if access is an attempt to write to
-   *    a read-only page (not_present == false?), terminate the process.
+   *    kernel memory (is_user_vaddr(fault_addr) == false), or if access is an
+   *    attempt to write to a read-only page (not_present == false?), terminate
+   *    the process.
    *
    *    retrieved_page = get_page(fault_addr);
-   *    if (retrieved_page == NULL || !user || !not_present) {
+   *    if (retrieved_page == NULL || !is_user_vaddr(fault_addr) || !not_present) {
    *      process_kill();
    *      kill(f);
    *    }
