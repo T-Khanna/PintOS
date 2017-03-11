@@ -674,9 +674,13 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init(&t->timer, 0);
 
   list_init(&t->locks_held);
+
   #ifdef USERPROG
   list_init(&t->descriptors);
   list_init(&t->child_processes);
+  #endif
+
+  #ifdef VM
   if (t->tid > 1) {
     supp_page_table_init(&t->supp_page_table);
   }

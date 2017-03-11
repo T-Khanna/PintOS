@@ -31,6 +31,9 @@ struct process
                                            of its child processes. */
   };
 
+bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
+                   uint32_t read_bytes, uint32_t zero_bytes, bool writable,
+                   bool lazy_load);
 struct process* get_process_by_tid(tid_t tid, struct list* processes);
 bool init_process (struct thread *t);
 tid_t process_execute (const char *file_name);

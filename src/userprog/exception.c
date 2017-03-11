@@ -95,7 +95,7 @@ kill (struct intr_frame *f)
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
-      exit(-1);
+      process_kill();
       //thread_exit ();
 
     case SEL_KCSEG:
@@ -133,7 +133,7 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
-
+  struct thread* t = thread_current();
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
      data.  It is not necessarily the address of the instruction
@@ -171,23 +171,19 @@ page_fault (struct intr_frame *f)
   /* Frame virtual address. */
   void* fvaddr = NULL;
 
-  struct thread* t = thread_current();
-  struct supp_page_table_entry* supp_page
-    = supp_page_table_get(&t->supp_page_table, vaddr);
+  struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
 
   /* If the page doesn't exist, kill the process. */
-  if (supp_page == NULL) {
+  if (sp == NULL) {
     /* TODO: Might need to check for stack growth here. */
-    process_kill();
+    kill(f);
   } else {
-    switch (supp_page->status) {
+    switch (sp->status) {
       case ZEROED:
         /* TODO: Allocate an all zeroed page to the frame received from the
                  frame allocator. */
         fvaddr = palloc_get_page(PAL_ZERO);
-        break;
-      case IN_FILESYS:
-        /* TODO: Lazy load page data from file table. */
+        pagedir_set_page(t->pagedir, vaddr, fvaddr, sp->writable);
         break;
       case SWAPPED:
         /* TODO: Lazy load page data from swap table. */
@@ -195,16 +191,17 @@ page_fault (struct intr_frame *f)
       case MMAPPED:
         /* TODO: Lazy load page data from mmap table. */
         break;
-      case LAZY_EXEC:
-        /* TODO: Lazy load the executable. */
+      case IN_FILESYS:
+        /* TODO: Lazy load page data for the executable. */
+        load_segment(sp->file, sp->ofs, sp->upage, sp->read_bytes,
+                     sp->zero_bytes, sp->writable, true);
         break;
       case LOADED:
         PANIC("There should be no page fault from page already in memory.");
       default:
         NOT_REACHED();
     }
-    pagedir_set_page(t->pagedir, vaddr, fvaddr, supp_page->is_writable);
-    supp_page->status = LOADED;
+    sp->status = LOADED;
   }
 
   /* 1. Locate page that faulted in SPT. If memory reference is valid, use the
