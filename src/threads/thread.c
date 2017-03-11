@@ -15,6 +15,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "vm/swap.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -253,6 +254,7 @@ thread_create (const char *name, int priority,
     palloc_free_page(t);
     return TID_ERROR;
   }
+  swap_table_init(&t->swap_table);
   #endif
 
   /* Prepare thread for first run by initializing its stack.
