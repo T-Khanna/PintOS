@@ -127,6 +127,9 @@ struct thread
                                            thread executes. */
     struct list child_processes;        /* List of child processes created
                                            by the thread. */
+#endif
+
+#ifdef VM
     struct hash supp_page_table;        /* Supplementary page table */
 #endif
 
