@@ -1,5 +1,9 @@
 #include "vm/frame.h"
 
 void frame_init (struct frame *) {
-  // do something
+  // INITIALISE LOCK
+  // INITIALISE HASH
 }
+
+
+
