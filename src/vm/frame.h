@@ -15,7 +15,7 @@ struct frame {
 };
 
 void frame_init (struct frame *);
-void frame_get_page(void * args);
-void frame_free_page(void *addr);
+uint8_t frame_get_page(void * args);
+//void frame_free_page(void *addr);
 
 #endif /* vm/frame.h */
