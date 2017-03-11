@@ -2,8 +2,10 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "userprog/gdt.h"
+#include "userprog/pagedir.h"
 #include "userprog/syscall.h"
 #include "userprog/process.h"
+#include "threads/palloc.h"
 #include "threads/vaddr.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -166,6 +168,9 @@ page_fault (struct intr_frame *f)
   /* Rounds the fault address such that it starts from page boundary. */
   void* vaddr = pg_round_down(fault_addr);
 
+  /* Frame virtual address. */
+  void* fvaddr = NULL;
+
   struct thread* t = thread_current();
   struct supp_page_table_entry* supp_page
     = supp_page_table_get(&t->supp_page_table, vaddr);
@@ -179,6 +184,7 @@ page_fault (struct intr_frame *f)
       case ZEROED:
         /* TODO: Allocate an all zeroed page to the frame received from the
                  frame allocator. */
+        fvaddr = palloc_get_page(PAL_ZERO);
         break;
       case IN_FILESYS:
         /* TODO: Lazy load page data from file table. */
@@ -197,6 +203,7 @@ page_fault (struct intr_frame *f)
       default:
         NOT_REACHED();
     }
+    pagedir_set_page(t->pagedir, vaddr, fvaddr, supp_page->is_writable);
     supp_page->status = LOADED;
   }
 
@@ -228,10 +235,10 @@ page_fault (struct intr_frame *f)
 
 
   /* TODO: Delete this after implementing the above. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+  // printf ("Page fault at %p: %s error %s page in %s context.\n",
+  //         fault_addr,
+  //         not_present ? "not present" : "rights violation",
+  //         write ? "writing" : "reading",
+  //         user ? "user" : "kernel");
+  // kill (f);
 }
