@@ -163,23 +163,41 @@ page_fault (struct intr_frame *f)
     process_kill();
   }
 
+  /* Rounds the fault address such that it starts from page boundary. */
+  void* vaddr = pg_round_down(fault_addr);
+
   struct thread* t = thread_current();
   struct supp_page_table_entry* supp_page
-    = supp_page_table_get(&t->supp_page_table, fault_addr);
+    = supp_page_table_get(&t->supp_page_table, vaddr);
 
+  /* If the page doesn't exist, kill the process. */
   if (supp_page == NULL) {
+    /* TODO: Might need to check for stack growth here. */
     process_kill();
   } else {
     switch (supp_page->status) {
+      case ZEROED:
+        /* TODO: Allocate an all zeroed page to the frame received from the
+                 frame allocator. */
+        break;
+      case IN_FILESYS:
+        /* TODO: Lazy load page data from file table. */
+        break;
+      case SWAPPED:
+        /* TODO: Lazy load page data from swap table. */
+        break;
+      case MMAPPED:
+        /* TODO: Lazy load page data from mmap table. */
+        break;
+      case LAZY_EXEC:
+        /* TODO: Lazy load the executable. */
+        break;
       case LOADED:
         PANIC("There should be no page fault from page already in memory.");
-        break;
-      case ZEROED:
-      case EXEC_LAZY:
-      case SWAPPED:
       default:
         NOT_REACHED();
     }
+    supp_page->status = LOADED;
   }
 
   /* 1. Locate page that faulted in SPT. If memory reference is valid, use the
@@ -191,12 +209,6 @@ page_fault (struct intr_frame *f)
    *    kernel memory (is_user_vaddr(fault_addr) == false), or if access is an
    *    attempt to write to a read-only page (not_present == false?), terminate
    *    the process.
-   *
-   *    retrieved_page = get_page(fault_addr);
-   *    if (retrieved_page == NULL || !is_user_vaddr(fault_addr) || !not_present) {
-   *      process_kill();
-   *      kill(f);
-   *    }
    */
 
   /* 2. Get a frame from the frame table to store the page. If data is already
