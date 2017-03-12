@@ -5,6 +5,7 @@ unsigned supp_pte_hash_func(const struct hash_elem *elem,
     void *aux UNUSED);
 bool supp_pte_less_func(const struct hash_elem *a,
     const struct hash_elem *b, void *aux UNUSED);
+void delete_supp_pte(struct hash_elem *elem, void *aux UNUSED);
 
 /* Initialises a supplementary page table, and returns whether it was successful
    in doing so */
@@ -13,11 +14,10 @@ bool supp_page_table_init(struct hash *table)
   return hash_init(table, &supp_pte_hash_func, &supp_pte_less_func, NULL);
 }
 
-/* Destroy all of the elements of a supplementary page table. Action function
-   argument is null because we do not need to do anything to the entries */
+/* Destroy all of the elements of a supplementary page table. */
 void supp_page_table_destroy(struct hash *table)
 {
-  hash_destroy(table, NULL);
+  hash_destroy(table, &delete_supp_pte);
 }
 
 /* Returns the supplementary page table entry corresponding to the page vaddr
@@ -33,8 +33,13 @@ struct supp_page_table_entry * supp_page_table_get(struct hash *hash,
    already exists, in which case it is returned without modifying hash.
    vaddr should point to the start of the page, as returned by pg_round_down */
 struct supp_page_table_entry * supp_page_table_insert(struct hash *hash,
-    struct supp_page_table_entry *entry)
+    void *vaddr, enum page_status_t status)
 {
+  struct supp_page_table_entry *entry
+      = malloc(sizeof(struct supp_page_table_entry));
+  ASSERT(entry != NULL);
+  entry->vaddr = vaddr;
+  entry->status = status;
   struct hash_elem *prev = hash_insert(hash, &entry->hash_elem);
 
   return (prev == NULL) ? NULL :
@@ -59,4 +64,12 @@ bool supp_pte_less_func(const struct hash_elem *a,
   struct supp_page_table_entry *b_entry
       = hash_entry(b, struct supp_page_table_entry, hash_elem);
   return a_entry->vaddr < b_entry->vaddr;
+}
+
+/* Free the memory used by an entry in the supplementary page table */
+void delete_supp_pte(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct supp_page_table_entry *entry
+      = hash_entry(elem, struct supp_page_table_entry, hash_elem);
+  free(entry);
 }

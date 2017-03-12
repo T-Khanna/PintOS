@@ -16,6 +16,7 @@ enum page_status_t {
 struct supp_page_table_entry {
   void *vaddr;                /* The virtual address of this page */
   enum page_status_t status;  /* The status of this page */
+  bool is_writable;           /* Whether a page is writeable */
   struct hash_elem hash_elem; /* Bookkeeping */
 };
 
@@ -24,6 +25,6 @@ void supp_page_table_destroy(struct hash *table);
 struct supp_page_table_entry * supp_page_table_get(struct hash *hash,
     void *vaddr);
 struct supp_page_table_entry * supp_page_table_insert(struct hash *hash,
-    struct supp_page_table_entry *entry);
+    void *vaddr, enum page_status_t);
 
 #endif /* vm/page.h */
