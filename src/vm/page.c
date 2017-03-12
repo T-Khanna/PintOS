@@ -1,6 +1,8 @@
 #include "vm/page.h"
 #include "vm/frame.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
+#include "userprog/pagedir.h"
 
 unsigned supp_pte_hash_func(const struct hash_elem *elem,
     void *aux UNUSED);
@@ -32,7 +34,7 @@ void free_pte_related_resources(struct hash_elem *elem, void *aux UNUSED)
   struct supp_page_table_entry *entry
       = hash_entry(elem, struct supp_page_table_entry, hash_elem);
   switch (entry->status) {
-    case LOADED:
+    case LOADED:;
       void *kaddr = pagedir_get_page(thread_current()->pagedir, entry->vaddr);
       ASSERT(kaddr != NULL);
       frame_free_page(kaddr);
