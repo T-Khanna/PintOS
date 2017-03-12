@@ -580,8 +580,7 @@ thread_get_recent_cpu (void)
 static void
 idle (void *idle_started_ UNUSED)
 {
-  struct semaphore *idle_started = idle_started_;supp_page_table_destroy(cur->supp_page_table);
-#endif
+  struct semaphore *idle_started = idle_started_;
   idle_thread = thread_current ();
   sema_up (idle_started);
 

@@ -19,6 +19,8 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 
 #define MAX_FILE_NAME 16
 #define WORDSIZE 4
@@ -342,7 +344,7 @@ process_exit (void)
   }
 
 #ifdef VM
-  supp_page_table_destroy(cur->supp_page_table);
+  supp_page_table_destroy(&cur->supp_page_table);
 #endif
 
   /* Destroy the current process's page directory and switch back
