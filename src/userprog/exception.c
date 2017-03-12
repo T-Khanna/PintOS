@@ -2,9 +2,14 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "userprog/gdt.h"
+#include "userprog/pagedir.h"
 #include "userprog/syscall.h"
+#include "userprog/process.h"
+#include "threads/palloc.h"
+#include "threads/vaddr.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -154,6 +159,53 @@ page_fault (struct intr_frame *f)
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
 
+  /* Check if fault address is in the kernel space or if it is attempting to
+     write to a read-only page. */
+  if (!is_user_vaddr(fault_addr) || !not_present) {
+    process_kill();
+  }
+
+  /* Rounds the fault address such that it starts from page boundary. */
+  void* vaddr = pg_round_down(fault_addr);
+
+  /* Frame virtual address. */
+  void* fvaddr = NULL;
+
+  struct thread* t = thread_current();
+  struct supp_page_table_entry* supp_page
+    = supp_page_table_get(&t->supp_page_table, vaddr);
+
+  /* If the page doesn't exist, kill the process. */
+  if (supp_page == NULL) {
+    /* TODO: Might need to check for stack growth here. */
+    process_kill();
+  } else {
+    switch (supp_page->status) {
+      case ZEROED:
+        /* TODO: Allocate an all zeroed page to the frame received from the
+                 frame allocator. */
+        fvaddr = palloc_get_page(PAL_ZERO);
+        break;
+      case IN_FILESYS:
+        /* TODO: Lazy load page data from file table. */
+        break;
+      case SWAPPED:
+        /* TODO: Lazy load page data from swap table. */
+        break;
+      case MMAPPED:
+        /* TODO: Lazy load page data from mmap table. */
+        break;
+      case LAZY_EXEC:
+        /* TODO: Lazy load the executable. */
+        break;
+      case LOADED:
+        PANIC("There should be no page fault from page already in memory.");
+      default:
+        NOT_REACHED();
+    }
+    pagedir_set_page(t->pagedir, vaddr, fvaddr, supp_page->is_writable);
+    supp_page->status = LOADED;
+  }
 
   /* 1. Locate page that faulted in SPT. If memory reference is valid, use the
    *    SPT entry to locate data that goes in the page, checking page_status_t
@@ -161,14 +213,9 @@ page_fault (struct intr_frame *f)
    *
    *    If the SPT indicates that the user process should not expect any data
    *    at fault_addr (retrieved_page == NULL?), or if the page lies within
-   *    kernel memory (user == false), or if access is an attempt to write to
-   *    a read-only page (not_present == false?), terminate the process.
-   *
-   *    retrieved_page = get_page(fault_addr);
-   *    if (retrieved_page == NULL || !user || !not_present) {
-   *      process_kill();
-   *      kill(f);
-   *    }
+   *    kernel memory (is_user_vaddr(fault_addr) == false), or if access is an
+   *    attempt to write to a read-only page (not_present == false?), terminate
+   *    the process.
    */
 
   /* 2. Get a frame from the frame table to store the page. If data is already
@@ -188,10 +235,10 @@ page_fault (struct intr_frame *f)
 
 
   /* TODO: Delete this after implementing the above. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+  // printf ("Page fault at %p: %s error %s page in %s context.\n",
+  //         fault_addr,
+  //         not_present ? "not present" : "rights violation",
+  //         write ? "writing" : "reading",
+  //         user ? "user" : "kernel");
+  // kill (f);
 }
