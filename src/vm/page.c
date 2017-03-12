@@ -1,4 +1,5 @@
 #include "vm/page.h"
+#include "vm/frame.h"
 #include "threads/malloc.h"
 
 unsigned supp_pte_hash_func(const struct hash_elem *elem,
@@ -6,6 +7,7 @@ unsigned supp_pte_hash_func(const struct hash_elem *elem,
 bool supp_pte_less_func(const struct hash_elem *a,
     const struct hash_elem *b, void *aux UNUSED);
 void delete_supp_pte(struct hash_elem *elem, void *aux UNUSED);
+void free_pte_related_resources(struct hash_elem *elem, void *pd_);
 
 /* Initialises a supplementary page table, and returns whether it was successful
    in doing so */
@@ -14,10 +16,31 @@ bool supp_page_table_init(struct hash *table)
   return hash_init(table, &supp_pte_hash_func, &supp_pte_less_func, NULL);
 }
 
-/* Destroy all of the elements of a supplementary page table. */
+/* Destroy all of the elements of a supplementary page table.
+   Takes appropriate action to deallocate resources for each entry. */
 void supp_page_table_destroy(struct hash *table)
 {
+  ASSERT(table != NULL);
+  hash_apply(table, &free_pte_related_resources);
   hash_destroy(table, &delete_supp_pte);
+}
+
+/* Take appropriate action for a supplemntary page table entry when a process
+   exits.*/
+void free_pte_related_resources(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct supp_page_table_entry *entry
+      = hash_entry(elem, struct supp_page_table_entry, hash_elem);
+  switch (entry->status) {
+    case LOADED:
+      void *kaddr = pagedir_get_page(thread_current()->pagedir, entry->vaddr);
+      ASSERT(kaddr != NULL);
+      frame_free_page(kaddr);
+      break;
+
+    default:
+      break;
+  }
 }
 
 /* Returns the supplementary page table entry corresponding to the page vaddr
