@@ -341,6 +341,10 @@ process_exit (void)
     sema_up(&cur->process->wait_sema);
   }
 
+#ifdef VM
+  supp_page_table_destroy(cur->supp_page_table);
+#endif
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
