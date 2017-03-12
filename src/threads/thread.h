@@ -8,6 +8,7 @@
 #include "threads/synch.h"
 #include "threads/fixed-point.h"
 #ifdef USERPROG
+#include <hash.h>
 #include "userprog/process.h"
 #endif
 
@@ -127,7 +128,11 @@ struct thread
                                            thread executes. */
     struct list child_processes;        /* List of child processes created
                                            by the thread. */
+#endif
+
+#ifdef VM
     struct hash supp_page_table;        /* Supplementary page table */
+    struct hash swap_table;             /* Thread's swap table */
 #endif
 
     /* Owned by thread.c. */
