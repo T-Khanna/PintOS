@@ -29,7 +29,8 @@ bool supp_page_table_init(struct hash *table);
 void supp_page_table_destroy(struct hash *table);
 struct supp_page * supp_page_table_get(struct hash *hash,
     void *vaddr);
-bool supp_page_table_insert(struct hash *hash,
-    struct supp_page *entry);
+bool supp_page_table_insert(struct hash *hash, void *vaddr,
+                            enum page_status_t);
+bool supp_page_table_insert_entry(struct hash *hash, struct supp_page * entry);
 
 #endif /* vm/page.h */

@@ -194,7 +194,7 @@ page_fault (struct intr_frame *f)
       case IN_FILESYS:
         /* TODO: Lazy load page data for the executable. */
         load_segment(sp->file, sp->ofs, sp->upage, sp->read_bytes,
-                     sp->zero_bytes, sp->writable, true);
+                     sp->zero_bytes, sp->writable);
         break;
       case LOADED:
         PANIC("There should be no page fault from page already in memory.");
