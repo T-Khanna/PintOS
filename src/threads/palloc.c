@@ -97,8 +97,6 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
         PANIC ("palloc_get: out of pages");
     }
     
-    printf("The address of the pages is %p\n", pages);
-
   return pages;
 }
 
@@ -112,7 +110,6 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
 void *
 palloc_get_page (enum palloc_flags flags) 
 {
-    printf("Getting a page\n");
   return palloc_get_multiple (flags, 1);
 }
 

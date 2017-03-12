@@ -24,20 +24,33 @@ void* frame_get_page(void *upage)
        frame_evict();
        // TODO some more things probably
     }
+    printf ("kpage is %p\n", kpage);
     struct frame *new_frame = (struct frame *) malloc(sizeof(struct frame));
     new_frame->t = thread_current();
-    new_frame->page_addr = kpage;
-    new_frame->user_addr = upage;
+    new_frame->kaddr = kpage;
+    new_frame->uaddr = upage;
     new_frame->is_userprog = (new_frame->t->process != NULL);
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
     if (success != NULL) {
         //TODO
-        PANIC("Something has gone terribly wrong!\n");
+        //PANIC("Something has gone terribly wrong!\n");
     }
 
     return kpage;
 
+}
+
+void frame_free_page(void *kaddr)
+{
+    struct frame f;
+    f.kaddr = kaddr;
+    struct hash_elem *del_elem = hash_delete(&hash_table, &f);
+    struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
+    
+    // Call to palloc_free_page
+    palloc_free_page(del_frame->kaddr);
+    free(del_frame);
 }
 
 static void frame_evict(void)
@@ -49,7 +62,7 @@ static void frame_evict(void)
 unsigned frame_hash_func(const struct hash_elem *e_, void *aux UNUSED)
 {
     struct frame *e = hash_entry(e_, struct frame, hash_elem);
-    return hash_int((int32_t) e->page_addr);
+    return hash_int((int32_t) e->kaddr);
 }
 
 bool frame_hash_less(const struct hash_elem *e1_,
@@ -57,5 +70,5 @@ bool frame_hash_less(const struct hash_elem *e1_,
 {
     struct frame *e1 = hash_entry(e1_, struct frame, hash_elem);
     struct frame *e2 = hash_entry(e2_, struct frame, hash_elem);
-    return e1->page_addr < e2->page_addr;
+    return e1->kaddr < e2->kaddr;
 }
