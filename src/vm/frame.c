@@ -17,17 +17,17 @@ void frame_init (void)
     hash_init(&hash_table, frame_hash_func, frame_hash_less, NULL);
 }
 
-void* frame_get_page(void)
+void* frame_get_page(void *upage)
 {
-    uint8_t *kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+    void *kpage = palloc_get_page (PAL_USER | PAL_ZERO);
     if (kpage == NULL) {
        frame_evict();
        // TODO some more things probably
     }
-    // TODO Maybe install_page here!? FIXME Don't know!
     struct frame *new_frame = (struct frame *) malloc(sizeof(struct frame));
     new_frame->t = thread_current();
     new_frame->page_addr = kpage;
+    new_frame->user_addr = upage;
     new_frame->is_userprog = (new_frame->t->process != NULL);
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);

@@ -6,7 +6,7 @@
 struct frame {
 
     struct thread *t;           /* Reference to the process it belongs to */
-    void *kaddr;                /* The kernel address of the frame in memory. */
+    void *user_addr;            /* The address in user memory. */
     void *page_addr;            /* Reference to page address in kernel vm.
                                    Also the key used for the hash table. */
     bool is_userprog;           /* TODO Check if needed. Used to check if a
@@ -17,7 +17,7 @@ struct frame {
 };
 
 void frame_init (void);
-void* frame_get_page(void);
+void* frame_get_page(void *);
 //void frame_free_page(void *addr);
 
 #endif /* vm/frame.h */
