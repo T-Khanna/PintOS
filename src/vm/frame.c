@@ -1,4 +1,5 @@
 #include "vm/frame.h"
+#include "vm/page.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
@@ -33,6 +34,9 @@ void* frame_get_page(void *upage)
     new_frame->is_userprog = (new_frame->t->process != NULL);
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
+    supp_page_table_init(&t->supp_page_table);
+    supp_page_table_insert(&t->supp_page_table, upage, LOADED);
+
     if (success != NULL) {
         //TODO
         //PANIC("Something has gone terribly wrong!\n");
