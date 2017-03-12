@@ -60,6 +60,7 @@ struct supp_page_table_entry * supp_page_table_get(struct hash *hash,
 struct supp_page_table_entry * supp_page_table_insert(struct hash *hash,
     void *vaddr, enum page_status_t status)
 {
+  ASSERT(hash != NULL);
   struct supp_page_table_entry *entry
       = malloc(sizeof(struct supp_page_table_entry));
   ASSERT(entry != NULL);
