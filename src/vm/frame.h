@@ -6,7 +6,9 @@
 struct frame {
 
     struct thread *t;           /* Reference to the process it belongs to */
-    void *page_addr;            /* Reference to page address in kernel vm */
+    void *kaddr                 /* The kernel address of the frame in memory. */
+    void *page_addr;            /* Reference to page address in kernel vm.
+                                   Also the key used for the hash table. */
     bool is_userprog;           /* TODO Check if needed. Used to check if a
                                    frame can be evicted or not (in case
                                    it's kernel memory */
