@@ -16,6 +16,10 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+#ifdef VM
+#include "vm/page.h"
+#include "vm/swap.h"
+#endif
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -241,6 +245,7 @@ thread_create (const char *name, int priority,
   ASSERT (function != NULL);
 
   /* Allocate thread. */
+  // TODO MAYBE change this to frame_get_page
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     return TID_ERROR;
@@ -253,6 +258,7 @@ thread_create (const char *name, int priority,
     palloc_free_page(t);
     return TID_ERROR;
   }
+  swap_table_init(&t->swap_table);
   #endif
 
   /* Prepare thread for first run by initializing its stack.
@@ -638,6 +644,7 @@ is_thread (struct thread *t)
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
+
   enum intr_level old_level;
 
   ASSERT (t != NULL);
@@ -673,9 +680,16 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init(&t->timer, 0);
 
   list_init(&t->locks_held);
+
   #ifdef USERPROG
   list_init(&t->descriptors);
   list_init(&t->child_processes);
+  #endif
+
+  #ifdef VM
+  if (t != initial_thread) {
+    supp_page_table_init(&t->supp_page_table);
+  }
   #endif
 
   old_level = intr_disable ();
@@ -752,6 +766,8 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
     {
       ASSERT (prev != cur);
+      // TODO Maybe handle its swap in the frame table;
+      // TODO TODO TODO MAYBE
       palloc_free_page (prev);
     }
 }

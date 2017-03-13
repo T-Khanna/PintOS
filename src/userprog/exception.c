@@ -2,9 +2,14 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "userprog/gdt.h"
+#include "userprog/pagedir.h"
 #include "userprog/syscall.h"
+#include "userprog/process.h"
+#include "threads/palloc.h"
+#include "threads/vaddr.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -90,7 +95,7 @@ kill (struct intr_frame *f)
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
-      exit(-1);
+      process_kill();
       //thread_exit ();
 
     case SEL_KCSEG:
@@ -128,7 +133,7 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
-
+  struct thread* t = thread_current();
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
      data.  It is not necessarily the address of the instruction
@@ -153,10 +158,84 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+
+  /* Check if fault address is in the kernel space or if it is attempting to
+     write to a read-only page. */
+  if (!is_user_vaddr(fault_addr) || !not_present) {
+    process_kill();
+  }
+
+  /* Rounds the fault address such that it starts from page boundary. */
+  void* vaddr = pg_round_down(fault_addr);
+
+  /* Frame virtual address. */
+  void* fvaddr = NULL;
+
+  struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
+
+  /* If the page doesn't exist, kill the process. */
+  if (sp == NULL) {
+    /* TODO: Might need to check for stack growth here. */
+    kill(f);
+  } else {
+    switch (sp->status) {
+      case ZEROED:
+        /* TODO: Allocate an all zeroed page to the frame received from the
+                 frame allocator. */
+        fvaddr = palloc_get_page(PAL_ZERO);
+        pagedir_set_page(t->pagedir, vaddr, fvaddr, sp->writable);
+        break;
+      case SWAPPED:
+        /* TODO: Lazy load page data from swap table. */
+        break;
+      case MMAPPED:
+        /* TODO: Lazy load page data from mmap table. */
+        break;
+      case IN_FILESYS:
+        /* TODO: Lazy load page data for the executable. */
+        load_segment(sp->file, sp->ofs, sp->upage, sp->read_bytes,
+                     sp->zero_bytes, sp->writable);
+        break;
+      case LOADED:
+        PANIC("There should be no page fault from page already in memory.");
+      default:
+        NOT_REACHED();
+    }
+    sp->status = LOADED;
+  }
+
+  /* 1. Locate page that faulted in SPT. If memory reference is valid, use the
+   *    SPT entry to locate data that goes in the page, checking page_status_t
+   *    for all appropriate cases.
+   *
+   *    If the SPT indicates that the user process should not expect any data
+   *    at fault_addr (retrieved_page == NULL?), or if the page lies within
+   *    kernel memory (is_user_vaddr(fault_addr) == false), or if access is an
+   *    attempt to write to a read-only page (not_present == false?), terminate
+   *    the process.
+   */
+
+  /* 2. Get a frame from the frame table to store the page. If data is already
+   *    in a frame, it needs to be located.
+   */
+
+  /* 3. Fetch data into the frame, the method depending on the page_status_t.
+   *    If data is already in a frame, we skip this step.
+   */
+
+  /* 4. Point page entry for faulting virtual address to the frame.
+   *
+   *    pagedir_set_page(thread_current()->pagedir, fault_addr, #frame_vaddr#, write);
+   */
+
+
+
+
+  /* TODO: Delete this after implementing the above. */
+  // printf ("Page fault at %p: %s error %s page in %s context.\n",
+  //         fault_addr,
+  //         not_present ? "not present" : "rights violation",
+  //         write ? "writing" : "reading",
+  //         user ? "user" : "kernel");
+  // kill (f);
 }

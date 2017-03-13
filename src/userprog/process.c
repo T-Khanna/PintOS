@@ -19,11 +19,18 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#ifdef VM
+  #include "vm/page.h"
+  #include "vm/frame.h"
+#endif
 
 #define MAX_FILE_NAME 16
 #define WORDSIZE 4
 
 static thread_func start_process NO_RETURN;
+static bool store_segment (struct file *file, off_t ofs, uint8_t *upage,
+                           uint32_t read_bytes, uint32_t zero_bytes,
+                           bool writable);
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static int count_args(char *command);
 static void read_args(char **argv, char **file_name, char *command_);
@@ -341,6 +348,10 @@ process_exit (void)
     sema_up(&cur->process->wait_sema);
   }
 
+  #ifdef VM
+    supp_page_table_destroy(&cur->supp_page_table);
+  #endif
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -440,9 +451,6 @@ struct Elf32_Phdr
 
 static bool setup_stack (void **esp);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
-static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
-                          uint32_t read_bytes, uint32_t zero_bytes,
-                          bool writable);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -535,7 +543,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!load_segment (file, file_page, (void *) mem_page,
+              if (!store_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
             }
@@ -617,6 +625,66 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   return true;
 }
 
+/* Stores a segment starting at offset OFS in FILE at address
+   UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
+   memory are initialized, as follows:
+
+        - READ_BYTES bytes at UPAGE must be read from FILE
+          starting at offset OFS.
+
+        - ZERO_BYTES bytes at UPAGE + READ_BYTES must be zeroed.
+
+   The pages initialized by this function must be writable by the
+   user process if WRITABLE is true, read-only otherwise.
+
+   Return true if successful, false if a memory allocation error
+   or insertion error occurs. */
+static bool
+store_segment (struct file *file, off_t ofs, uint8_t *upage,
+               uint32_t read_bytes, uint32_t zero_bytes, bool writable)
+{
+  ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
+  ASSERT (pg_ofs (upage) == 0);
+  ASSERT (ofs % PGSIZE == 0);
+
+  file_seek (file, ofs);
+
+  struct thread* t = thread_current();
+  struct supp_page* entry;
+
+  while (read_bytes > 0 || zero_bytes > 0)
+    {
+      /* Calculate how to fill this page.
+         We will read PAGE_READ_BYTES bytes from FILE
+         and zero the final PAGE_ZERO_BYTES bytes. */
+      size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+      size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+      entry = (struct supp_page *) malloc(sizeof(struct supp_page));
+      if (entry == NULL) {
+        return false;
+      }
+      entry->vaddr = pg_round_down(upage);
+      entry->file = file;
+      entry->ofs = ofs;
+      entry->upage = upage;
+      entry->read_bytes = read_bytes;
+      entry->zero_bytes = zero_bytes;
+      entry->writable = writable;
+      entry->status = page_zero_bytes == PGSIZE ? ZEROED : IN_FILESYS;
+
+      if (!supp_page_table_insert_entry(&t->supp_page_table, entry)) {
+        return false;
+      }
+
+      /* Advance. */
+      read_bytes -= page_read_bytes;
+      zero_bytes -= page_zero_bytes;
+      upage += PGSIZE;
+    }
+  return true;
+}
+
 /* Loads a segment starting at offset OFS in FILE at address
    UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
    memory are initialized, as follows:
@@ -631,7 +699,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 
    Return true if successful, false if a memory allocation error
    or disk read error occurs. */
-static bool
+bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable)
 {
@@ -640,6 +708,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
+
   while (read_bytes > 0 || zero_bytes > 0)
     {
       /* Calculate how to fill this page.
@@ -649,7 +718,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
+      uint8_t *kpage = frame_get_page (upage);
+      //uint8_t *kpage = (uint8_t *) frame_get_page(upage);
       if (kpage == NULL)
         return false;
 
@@ -659,7 +729,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           palloc_free_page (kpage);
           return false;
         }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
+
+      if (page_zero_bytes > 0) {
+        memset (kpage + page_read_bytes, 0, page_zero_bytes);
+      }
 
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable))
@@ -684,7 +757,7 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage = (uint8_t *) frame_get_page(((uint8_t *) PHYS_BASE) - PGSIZE);
   if (kpage != NULL)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
