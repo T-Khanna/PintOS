@@ -178,7 +178,6 @@ page_fault (struct intr_frame *f)
   void* fvaddr = NULL;
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
-  struct mmap_file_page* mfp;
 
   /* If the page doesn't exist, kill the process. */
   if (sp == NULL) {
@@ -195,10 +194,12 @@ page_fault (struct intr_frame *f)
       case SWAPPED:
         /* TODO: Lazy load page data from swap table. */
         break;
-      case MMAPPED:
+      case MMAPPED:;
         printf("WE'RE HERE LADS\n");
         /* TODO: Lazy load page data from mmap table. */
-        mfp = mmap_file_page_table_get(&t->mmap_file_page_table, vaddr);
+        mapid_t mapid = get_mapid_from_addr(&t->addrs_to_mapids, vaddr);
+        struct mmap_file_page* mfp
+          = mmap_file_page_table_get(&t->mmap_file_page_table, mapid);
         load_segment(mfp->file, mfp->ofs, mfp->vaddr, mfp->read_bytes,
                      mfp->zero_bytes, mfp->writable);
         break;

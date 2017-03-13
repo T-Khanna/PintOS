@@ -339,7 +339,7 @@ static void sys_mmap(struct intr_frame * f)
   struct thread* t = thread_current();
   mapid = t->process->next_mapid++;
   uint32_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
-  mmap_file_page_table_insert(&t->mmap_file_page_table, addr, file, 0,
+  mmap_file_page_table_insert(&t->mmap_file_page_table, addr, mapid, file, 0,
       read_bytes, zero_bytes, true);
 ret:
   f->eax = mapid;

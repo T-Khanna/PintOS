@@ -353,7 +353,8 @@ process_exit (void)
   #ifdef VM
     supp_page_table_destroy(&cur->supp_page_table);
     mmap_file_page_table_destroy(&cur->mmap_file_page_table);
-    //TODO: Remove all mappings in mmap_file_page_table.
+    /*TODO: Remove all mappings in mmap_file_page_table. Also, free address to
+            mapid table. */
   #endif
 
   /* Destroy the current process's page directory and switch back
@@ -671,8 +672,12 @@ store_segment (struct file *file, off_t ofs, uint8_t *upage,
         return false;
       }
 
-      if (!mmap_file_page_table_insert(&t->mmap_file_page_table, vaddr, file,
-               ofs, read_bytes, zero_bytes, writable)) {
+      mapid_t mapid = t->process->next_mapid++;
+      bool success = mmap_file_page_table_insert(&t->mmap_file_page_table,
+               vaddr, mapid, file, ofs, read_bytes, zero_bytes, writable);
+      success &= add_addr_mapid_mapping(&t->addrs_to_mapids, vaddr, mapid);
+
+      if (!success) {
         return false;
       }
 
