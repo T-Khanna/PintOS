@@ -132,7 +132,6 @@ struct thread
 
 #ifdef VM
     struct hash supp_page_table;        /* Supplementary page table */
-    struct hash file_page_table;        /**/
     struct hash mmap_file_page_table;   /**/
     struct hash swap_table;             /* Thread's swap table */
 #endif

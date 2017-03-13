@@ -327,8 +327,21 @@ static void sys_mmap(struct intr_frame * f)
 {
   int fd = (int) get_arg(f, 1);
   void* addr = get_arg(f, 2);
-  mapid_t mapid = 0;
-  //TODO
+  mapid_t mapid = -1;
+  //TODO: Check for valid addr
+  struct file* file = find_file(fd);
+  if (file == NULL) {
+    goto ret;
+  }
+  lock_filesys_access();
+  uint32_t read_bytes = file_length(file);
+  unlock_filesys_access();
+  struct thread* t = thread_current();
+  mapid = t->process->next_mapid++;
+  uint32_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
+  mmap_file_page_table_insert(&t->mmap_file_page_table, addr, file, 0,
+      read_bytes, zero_bytes, true);
+ret:
   f->eax = mapid;
 }
 

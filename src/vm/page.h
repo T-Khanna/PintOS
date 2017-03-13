@@ -9,7 +9,6 @@ enum page_status_t {
   MMAPPED,    /* Memory mapped and stored in the mmap table */
   SWAPPED,    /* Swapped out to disk */
   ZEROED,     /* Zeroed out page */
-  IN_FILESYS  /* Part of a lazy loaded executable, not yet loaded */
 };
 
 struct supp_page {

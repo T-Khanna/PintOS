@@ -22,7 +22,7 @@ void frame_init (void)
 void* frame_get_page(void *upage)
 {
     void *kpage = palloc_get_page(PAL_USER | PAL_ZERO);
-    
+
     if (kpage == NULL) {
        frame_evict();
        // TODO some more things probably
@@ -49,6 +49,7 @@ void frame_free_page(void *kaddr)
     struct frame f;
     f.kaddr = kaddr;
     struct hash_elem *del_elem = hash_delete(&hash_table, &f.hash_elem);
+    ASSERT(del_elem != NULL);
     struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
 
     // Call to palloc_free_page

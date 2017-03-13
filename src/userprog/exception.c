@@ -178,7 +178,7 @@ page_fault (struct intr_frame *f)
   void* fvaddr = NULL;
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
-  struct file_page* fp;
+  struct mmap_file_page* mfp;
 
   /* If the page doesn't exist, kill the process. */
   if (sp == NULL) {
@@ -196,13 +196,11 @@ page_fault (struct intr_frame *f)
         /* TODO: Lazy load page data from swap table. */
         break;
       case MMAPPED:
+        printf("WE'RE HERE LADS\n");
         /* TODO: Lazy load page data from mmap table. */
-        break;
-      case IN_FILESYS:
-        /* TODO: Lazy load page data for the executable. */
-        fp = file_page_table_get(&t->file_page_table, vaddr);
-        load_segment(fp->file, fp->ofs, fp->upage, fp->read_bytes,
-                     fp->zero_bytes, fp->writable);
+        mfp = mmap_file_page_table_get(&t->mmap_file_page_table, vaddr);
+        load_segment(mfp->file, mfp->ofs, mfp->vaddr, mfp->read_bytes,
+                     mfp->zero_bytes, mfp->writable);
         break;
       case LOADED:
         PANIC("There should be no page fault from page already in memory.");
