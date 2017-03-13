@@ -348,7 +348,17 @@ ret:
 static void sys_munmap(struct intr_frame * f)
 {
   mapid_t mapping = (mapid_t) get_arg(f, 1);
-  //TODO
+  munmap(mapping);
+}
+
+void munmap(mapid_t mapping) {
+  struct thread* t = thread_current();
+  struct mmap_file_page* page
+    = mmap_file_page_table_get(&t->mmap_file_page_table, mapping);
+  void* addr = page->vaddr;
+  //TODO: Free mmapped pages
+  mmap_file_page_table_delete_entry(&t->mmap_file_page_table, page);
+  delete_addr_mapid_mapping(&t->addrs_to_mapids, addr);
 }
 
 /******************************
