@@ -34,7 +34,7 @@ void swap_destroy(void)
 /* Initialise a swap table */
 void swap_table_init(struct hash *table)
 {
-  hash_init(table, &swap_table_hash_func, &swap_table_less_func, NULL);
+  hash_init(table, swap_table_hash_func, swap_table_less_func, NULL);
 }
 
 /* Destroy a swap table */
@@ -48,7 +48,7 @@ unsigned swap_table_hash_func(const struct hash_elem *elem, void *aux UNUSED)
 {
   struct swap_table_entry *entry
       = hash_entry(elem, struct swap_table_entry, elem);
-  return hash_bytes(&entry->vaddr, sizeof(void *));
+  return hash_bytes(&entry->vaddr, sizeof(entry->vaddr));
 }
 
 /* Use vaddr as the key and just compare those */

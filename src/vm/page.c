@@ -15,7 +15,7 @@ void free_pte_related_resources(struct hash_elem *elem, void *pd_);
    in doing so */
 bool supp_page_table_init(struct hash *table)
 {
-  return hash_init(table, &supp_pte_hash_func, &supp_pte_less_func, NULL);
+  return hash_init(table, supp_pte_hash_func, supp_pte_less_func, NULL);
 }
 
 /* Destroy all of the elements of a supplementary page table.
@@ -51,7 +51,8 @@ struct supp_page * supp_page_table_get(struct hash *hash, void *vaddr)
 {
   struct supp_page entry;
   entry.vaddr = vaddr;
-  return hash_entry(hash_find(hash, &entry.hash_elem), struct supp_page,
+  struct hash_elem *found = hash_find(hash, &entry.hash_elem);
+  return found == NULL ? NULL : hash_entry(found, struct supp_page,
       hash_elem);
 }
 
@@ -83,7 +84,7 @@ unsigned supp_pte_hash_func(const struct hash_elem *elem, void *aux UNUSED)
 {
   struct supp_page *entry
       = hash_entry(elem, struct supp_page, hash_elem);
-  return hash_bytes(entry->vaddr, sizeof(void *));
+  return hash_bytes(&entry->vaddr, sizeof(entry->vaddr));
 }
 
 /* function for comparing the addresses of two supplemtary page table entries */

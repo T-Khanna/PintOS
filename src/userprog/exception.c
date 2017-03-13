@@ -171,6 +171,7 @@ page_fault (struct intr_frame *f)
   /* Frame virtual address. */
   void* fvaddr = NULL;
 
+
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
 
   /* If the page doesn't exist, kill the process. */

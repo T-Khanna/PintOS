@@ -543,7 +543,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!store_segment (file, file_page, (void *) mem_page,
+              if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
             }
@@ -719,7 +719,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
       /* Get a page of memory. */
       uint8_t *kpage = frame_get_page (upage);
-      //uint8_t *kpage = (uint8_t *) frame_get_page(upage);
+      //uint8_t *kpage = palloc_get_page(PAL_USER);
       if (kpage == NULL)
         return false;
 

@@ -33,7 +33,6 @@ void* frame_get_page(void *upage)
     new_frame->is_userprog = (new_frame->t->process != NULL);
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
-    supp_page_table_init(&new_frame->t->supp_page_table);
     supp_page_table_insert(&new_frame->t->supp_page_table, upage, LOADED);
 
     if (success != NULL) {
@@ -50,6 +49,7 @@ void frame_free_page(void *kaddr)
     struct frame f;
     f.kaddr = kaddr;
     struct hash_elem *del_elem = hash_delete(&hash_table, &f.hash_elem);
+    //TODO check not null
     struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
 
     // Call to palloc_free_page
