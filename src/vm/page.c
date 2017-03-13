@@ -77,11 +77,43 @@ void supp_page_table_remove(struct hash *hash, void *vaddr)
 {
   struct supp_page page;
   page.vaddr = vaddr;
-  struct hash_elem*found = hash_delete(hash, &page.hash_elem);
+  struct hash_elem *found = hash_delete(hash, &page.hash_elem);
   if (found == NULL) {
     PANIC("Deleting non-existent item from spt!\n");
   }
   delete_supp_pte(found, NULL);
+}
+
+/* print an spt, one line per entry */
+void print_spt(struct hash *spt)
+{
+  hash_apply(spt, print_spt_entry);
+}
+
+void print_spt_entry(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct supp_page *page = hash_entry(elem, struct supp_page, hash_elem);
+  char *status;
+  switch (page->status) {
+    case LOADED:;
+      status = "LOADED";
+      break;
+    case MMAPPED:;
+      status = "MMAPED";
+      break;
+    case SWAPPED:;
+      status = "SWAPPED";
+      break;
+    case ZEROED:;
+      status = "ZEROED";
+      break;
+    case IN_FILESYS:;
+      status = "IN_FILESYS";
+      break;
+    default:
+      status = "UNKNOWN";
+  }
+  printf("VADDR: %p, STATUS: %s\n", page->vaddr, status);
 }
 
 /* Used for loading of executables. */
