@@ -2,6 +2,7 @@
 #include "vm/frame.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 
 unsigned supp_pte_hash_func(const struct hash_elem *elem,
@@ -63,13 +64,24 @@ bool supp_page_table_insert(struct hash *hash, void *vaddr,
                             enum page_status_t status)
 {
   ASSERT(hash != NULL);
-  struct supp_page *entry
-      = malloc(sizeof(struct supp_page));
+  struct supp_page *entry = malloc(sizeof(struct supp_page));
   ASSERT(entry != NULL);
-  entry->vaddr = vaddr;
+  entry->vaddr = pg_round_down(vaddr);
   entry->status = status;
   struct hash_elem *prev = hash_insert(hash, &entry->hash_elem);
   return prev == NULL;
+}
+
+/* Remove and free the entry in the supplementary page table for vaddr. */
+void supp_page_table_remove(struct hash *hash, void *vaddr)
+{
+  struct supp_page page;
+  page.vaddr = vaddr;
+  struct hash_elem*found = hash_delete(hash, &page.hash_elem);
+  if (found == NULL) {
+    PANIC("Deleting non-existent item from spt!\n");
+  }
+  delete_supp_pte(found, NULL);
 }
 
 /* Used for loading of executables. */

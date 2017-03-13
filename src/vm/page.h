@@ -31,6 +31,7 @@ struct supp_page * supp_page_table_get(struct hash *hash,
     void *vaddr);
 bool supp_page_table_insert(struct hash *hash, void *vaddr,
                             enum page_status_t);
+void supp_page_table_remove(struct hash *hash, void *vaddr);
 bool supp_page_table_insert_entry(struct hash *hash, struct supp_page * entry);
 
 #endif /* vm/page.h */

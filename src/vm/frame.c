@@ -53,7 +53,7 @@ void frame_free_page(void *kaddr)
     struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
 
     // Call to palloc_free_page
-    palloc_free_page(del_frame->kaddr);
+    //palloc_free_page(del_frame->kaddr);
     free(del_frame);
 }
 

@@ -200,6 +200,7 @@ page_fault (struct intr_frame *f)
       case LOADED:
         PANIC("There should be no page fault from page already in memory.");
       default:
+        PANIC("unrecognised spt status!");
         NOT_REACHED();
     }
     sp->status = LOADED;
