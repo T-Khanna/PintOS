@@ -49,11 +49,12 @@ void frame_free_page(void *kaddr)
     struct frame f;
     f.kaddr = kaddr;
     struct hash_elem *del_elem = hash_delete(&hash_table, &f.hash_elem);
-    //TODO check not null
+    ASSERT(del_elem != NULL);
     struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
 
-    // Call to palloc_free_page
-    //palloc_free_page(del_frame->kaddr);
+    pagedir_clear_page(del_frame->t->pagedir, del_frame->uaddr);
+    palloc_free_page(del_frame->kaddr);
+
     free(del_frame);
 }
 
