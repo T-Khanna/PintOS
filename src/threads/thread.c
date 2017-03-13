@@ -644,6 +644,7 @@ is_thread (struct thread *t)
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
+
   enum intr_level old_level;
 
   ASSERT (t != NULL);
@@ -686,7 +687,7 @@ init_thread (struct thread *t, const char *name, int priority)
   #endif
 
   #ifdef VM
-  if (t->tid > 1) {
+  if (t != initial_thread) {
     supp_page_table_init(&t->supp_page_table);
   }
   #endif

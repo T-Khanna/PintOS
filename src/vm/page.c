@@ -49,7 +49,9 @@ void free_pte_related_resources(struct hash_elem *elem, void *aux UNUSED)
    in hash if it exists, or null otherwise */
 struct supp_page * supp_page_table_get(struct hash *hash, void *vaddr)
 {
-  return hash_entry(hash_find(hash, vaddr), struct supp_page,
+  struct supp_page entry;
+  entry.vaddr = vaddr;
+  return hash_entry(hash_find(hash, &entry.hash_elem), struct supp_page,
       hash_elem);
 }
 
@@ -67,8 +69,6 @@ bool supp_page_table_insert(struct hash *hash, void *vaddr,
   entry->status = status;
   struct hash_elem *prev = hash_insert(hash, &entry->hash_elem);
   return prev == NULL;
-  // return (prev == NULL) ? NULL :
-  //     hash_entry(prev, struct supp_page, hash_elem);
 }
 
 /* Used for loading of executables. */
@@ -76,8 +76,6 @@ bool supp_page_table_insert_entry(struct hash *hash, struct supp_page* entry)
 {
   struct hash_elem *prev = hash_insert(hash, &entry->hash_elem);
   return prev == NULL;
-  // return (prev == NULL) ? NULL :
-  //     hash_entry(prev, struct supp_page, hash_elem);
 }
 
 /* function for hashing the page pointer in a supplementary page table entry */
