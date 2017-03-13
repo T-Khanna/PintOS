@@ -544,7 +544,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!load_segment (file, file_page, (void *) mem_page,
+              if (!store_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
             }
@@ -719,7 +719,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = frame_get_page (upage);
+      uint8_t *kpage = frame_get_page (upage, ZEROED);
       //uint8_t *kpage = palloc_get_page(PAL_USER);
       if (kpage == NULL)
         return false;
@@ -758,15 +758,39 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = (uint8_t *) frame_get_page(((uint8_t *) PHYS_BASE) - PGSIZE);
-  if (kpage != NULL)
-    {
+  enum intr_level old_level = intr_disable();
+
+  kpage = (uint8_t *) frame_get_page(((uint8_t *) PHYS_BASE) - PGSIZE, LOADED);
+  if (kpage != NULL) {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
         *esp = PHYS_BASE;
       else
         frame_free_page (kpage);
+  }
+
+  intr_set_level(old_level);
+  
+  uint8_t *upage = (uint8_t *) PHYS_BASE - 2 * PGSIZE;
+  struct thread *t = thread_current();
+
+  /* Reserve max stack size */
+  while (upage > (uint8_t *) PHYS_BASE - STACK_MAX_SIZE) {
+
+      struct supp_page *entry = (struct supp_page *) malloc(sizeof(struct supp_page));
+      if (entry == NULL) {
+        return false;
+      }
+      entry->upage = upage;
+      entry->status = ZEROED;
+
+      if (!supp_page_table_insert_entry(&t->supp_page_table, entry)) {
+        return false;
+      }
+      /* Advance. */
+      upage -= PGSIZE;
     }
+
   return success;
 }
 

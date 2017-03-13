@@ -174,16 +174,21 @@ page_fault (struct intr_frame *f)
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
 
+  if (fault_addr <= PHYS_BASE && fault_addr >= PHYS_BASE - STACK_MAX_SIZE) {
+      if (fault_addr != f->esp - 4 && fault_addr != f->esp - 32) {
+          kill(f);
+      }
+  }
+
   /* If the page doesn't exist, kill the process. */
   if (sp == NULL) {
-    /* TODO: Might need to check for stack growth here. */
     kill(f);
   } else {
     switch (sp->status) {
       case ZEROED:
         /* TODO: Allocate an all zeroed page to the frame received from the
                  frame allocator. */
-        fvaddr = palloc_get_page(PAL_ZERO);
+        fvaddr = frame_get_page(vaddr, ZEROED);
         pagedir_set_page(t->pagedir, vaddr, fvaddr, sp->writable);
         break;
       case SWAPPED:

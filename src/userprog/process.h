@@ -8,6 +8,7 @@
 #define RET_ERROR -1
 #define MAX_CMD 3072
 #define MAX_ARGS 200
+#define STACK_MAX_SIZE 8388608
 
 typedef int tid_t;
 
