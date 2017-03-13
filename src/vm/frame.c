@@ -8,6 +8,8 @@
 static unsigned frame_hash_func(const struct hash_elem *e, void *aux);
 static bool frame_hash_less(const struct hash_elem *e1,
      const struct hash_elem *e2, void *aux);
+static void frame_lock(void);
+static void frame_unlock(void);
 static void frame_evict(void);
 struct hash hash_table;
 struct lock frame_lock;
@@ -16,6 +18,16 @@ void frame_init (void)
 {
     lock_init(&frame_lock);
     hash_init(&hash_table, frame_hash_func, frame_hash_less, NULL);
+}
+
+void frame_lock()
+{
+    lock_acquire(&frame_lock);
+}
+
+void frame_unlock()
+{
+    lock_release(&frame_lock);
 }
 
 void* frame_get_page(void *upage)
@@ -32,8 +44,12 @@ void* frame_get_page(void *upage)
     new_frame->uaddr = upage;
     new_frame->is_userprog = (new_frame->t->process != NULL);
 
+    frame_lock();
+
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
     supp_page_table_insert(&new_frame->t->supp_page_table, upage, LOADED);
+
+    frame_unlock();
 
     if (success != NULL) {
         //TODO
@@ -48,13 +64,21 @@ void frame_free_page(void *kaddr)
 {
     struct frame f;
     f.kaddr = kaddr;
+
+    frame_lock();
+
     struct hash_elem *del_elem = hash_delete(&hash_table, &f.hash_elem);
     //TODO check not null
     struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
 
-    // Call to palloc_free_page
-    //palloc_free_page(del_frame->kaddr);
+
+
+    // Frees the page and removes its reference
+    
+    palloc_free_page(del_frame->kaddr);
     free(del_frame);
+
+    frame_unlock();
 }
 
 static void frame_evict(void)
