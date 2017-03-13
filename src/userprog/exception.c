@@ -200,7 +200,7 @@ page_fault (struct intr_frame *f)
         break;
       case IN_FILESYS:
         /* TODO: Lazy load page data for the executable. */
-        fp = NULL;
+        fp = file_page_table_get(&t->file_page_table, vaddr);
         load_segment(fp->file, fp->ofs, fp->upage, fp->read_bytes,
                      fp->zero_bytes, fp->writable);
         break;

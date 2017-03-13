@@ -351,6 +351,7 @@ process_exit (void)
 
   #ifdef VM
     supp_page_table_destroy(&cur->supp_page_table);
+    file_page_table_destroy(&cur->file_page_table);
   #endif
 
   /* Destroy the current process's page directory and switch back

@@ -1,5 +1,6 @@
 #include "vm/frame.h"
 #include "vm/page.h"
+#include "threads/vaddr.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
@@ -15,13 +16,13 @@ struct lock frame_lock;
 void frame_init (void)
 {
     lock_init(&frame_lock);
-    hash_init(&hash_table, frame_hash_func, frame_hash_less, NULL);
+    hash_init(&hash_table, &frame_hash_func, &frame_hash_less, NULL);
 }
 
 void* frame_get_page(void *upage)
 {
     void *kpage = palloc_get_page(PAL_USER | PAL_ZERO);
-
+    
     if (kpage == NULL) {
        frame_evict();
        // TODO some more things probably

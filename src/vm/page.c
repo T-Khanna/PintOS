@@ -83,7 +83,7 @@ unsigned supp_pte_hash_func(const struct hash_elem *elem, void *aux UNUSED)
 {
   struct supp_page *entry
       = hash_entry(elem, struct supp_page, hash_elem);
-  return hash_bytes(entry->vaddr, sizeof(void *));
+  return hash_bytes(&entry->vaddr, sizeof(entry->vaddr));
 }
 
 /* function for comparing the addresses of two supplemtary page table entries */
