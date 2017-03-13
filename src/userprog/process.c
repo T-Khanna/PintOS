@@ -22,6 +22,7 @@
 #ifdef VM
   #include "vm/page.h"
   #include "vm/frame.h"
+  #include "vm/mmap.h"
 #endif
 
 #define MAX_FILE_NAME 16
@@ -650,7 +651,6 @@ store_segment (struct file *file, off_t ofs, uint8_t *upage,
   file_seek (file, ofs);
 
   struct thread* t = thread_current();
-  struct supp_page* entry;
 
   while (read_bytes > 0 || zero_bytes > 0)
     {
@@ -660,20 +660,15 @@ store_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      entry = (struct supp_page *) malloc(sizeof(struct supp_page));
-      if (entry == NULL) {
+      enum page_status_t s = page_zero_bytes == PGSIZE ? ZEROED : IN_FILESYS;
+      void* vaddr = pg_round_down(upage);
+
+      if (!supp_page_table_insert(&t->supp_page_table, vaddr, s)) {
         return false;
       }
-      entry->vaddr = pg_round_down(upage);
-      entry->file = file;
-      entry->ofs = ofs;
-      entry->upage = upage;
-      entry->read_bytes = read_bytes;
-      entry->zero_bytes = zero_bytes;
-      entry->writable = writable;
-      entry->status = page_zero_bytes == PGSIZE ? ZEROED : IN_FILESYS;
 
-      if (!supp_page_table_insert_entry(&t->supp_page_table, entry)) {
+      if (!file_page_table_insert(&t->file_page_table, vaddr, file, ofs, upage,
+                                  read_bytes, zero_bytes, writable)) {
         return false;
       }
 

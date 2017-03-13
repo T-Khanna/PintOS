@@ -9,7 +9,10 @@
 #include "threads/vaddr.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "vm/page.h"
+#ifdef VM
+  #include "vm/page.h"
+  #include "vm/mmap.h"
+#endif
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -158,6 +161,9 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
+  // kill(f);
+  // NOT_REACHED();
+
 
   /* Check if fault address is in the kernel space or if it is attempting to
      write to a read-only page. */
@@ -172,6 +178,7 @@ page_fault (struct intr_frame *f)
   void* fvaddr = NULL;
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
+  struct file_page* fp;
 
   /* If the page doesn't exist, kill the process. */
   if (sp == NULL) {
@@ -183,7 +190,7 @@ page_fault (struct intr_frame *f)
         /* TODO: Allocate an all zeroed page to the frame received from the
                  frame allocator. */
         fvaddr = palloc_get_page(PAL_ZERO);
-        pagedir_set_page(t->pagedir, vaddr, fvaddr, sp->writable);
+        pagedir_set_page(t->pagedir, vaddr, fvaddr, true);
         break;
       case SWAPPED:
         /* TODO: Lazy load page data from swap table. */
@@ -193,8 +200,9 @@ page_fault (struct intr_frame *f)
         break;
       case IN_FILESYS:
         /* TODO: Lazy load page data for the executable. */
-        load_segment(sp->file, sp->ofs, sp->upage, sp->read_bytes,
-                     sp->zero_bytes, sp->writable);
+        fp = NULL;
+        load_segment(fp->file, fp->ofs, fp->upage, fp->read_bytes,
+                     fp->zero_bytes, fp->writable);
         break;
       case LOADED:
         PANIC("There should be no page fault from page already in memory.");

@@ -14,6 +14,9 @@
 #include "userprog/pagedir.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#ifdef VM
+#include "vm/mmap.h"
+#endif
 
 /* Function to call the corresponding system call with the syscall number. */
 static void syscall_handler (struct intr_frame *);
