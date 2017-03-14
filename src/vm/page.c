@@ -2,6 +2,7 @@
 #include "vm/frame.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 
 unsigned supp_pte_hash_func(const struct hash_elem *elem,
@@ -15,7 +16,7 @@ void free_pte_related_resources(struct hash_elem *elem, void *pd_);
    in doing so */
 bool supp_page_table_init(struct hash *table)
 {
-  return hash_init(table, &supp_pte_hash_func, &supp_pte_less_func, NULL);
+  return hash_init(table, supp_pte_hash_func, supp_pte_less_func, NULL);
 }
 
 /* Destroy all of the elements of a supplementary page table.
@@ -51,24 +52,67 @@ struct supp_page * supp_page_table_get(struct hash *hash, void *vaddr)
 {
   struct supp_page entry;
   entry.vaddr = vaddr;
-  return hash_entry(hash_find(hash, &entry.hash_elem), struct supp_page,
+  struct hash_elem *found = hash_find(hash, &entry.hash_elem);
+  return found == NULL ? NULL : hash_entry(found, struct supp_page,
       hash_elem);
 }
 
 /* Inserts the page vaddr into the supplemtary page table unless an entry for it
-   already exists, in which case it is returned without modifying hash.
-   vaddr should point to the start of the page, as returned by pg_round_down */
-bool supp_page_table_insert(struct hash *hash, void *vaddr,
+   already exists, in which case it sets its status. */
+void supp_page_table_insert(struct hash *hash, void *vaddr,
                             enum page_status_t status)
 {
   ASSERT(hash != NULL);
-  struct supp_page *entry
-      = malloc(sizeof(struct supp_page));
+  struct supp_page *entry = malloc(sizeof(struct supp_page));
   ASSERT(entry != NULL);
-  entry->vaddr = vaddr;
+  entry->vaddr = pg_round_down(vaddr);
   entry->status = status;
   struct hash_elem *prev = hash_insert(hash, &entry->hash_elem);
-  return prev == NULL;
+  if (prev != NULL) {
+    /* there was already an entry, mark it with status */
+    hash_entry(prev, struct supp_page, hash_elem)->status = status;
+  }
+}
+
+/* Remove and free the entry in the supplementary page table for vaddr. */
+void supp_page_table_remove(struct hash *hash, void *vaddr)
+{
+  struct supp_page page;
+  page.vaddr = vaddr;
+  struct hash_elem *found = hash_delete(hash, &page.hash_elem);
+  if (found == NULL) {
+    PANIC("Deleting non-existent item from spt!\n");
+  }
+  delete_supp_pte(found, NULL);
+}
+
+/* print an spt, one line per entry */
+void print_spt(struct hash *spt)
+{
+  hash_apply(spt, print_spt_entry);
+}
+
+void print_spt_entry(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct supp_page *page = hash_entry(elem, struct supp_page, hash_elem);
+  char *status;
+  switch (page->status) {
+    case LOADED:;
+      status = "LOADED";
+      break;
+    case MMAPPED:;
+      status = "MMAPED";
+      break;
+    case SWAPPED:;
+      status = "SWAPPED";
+      break;
+    case ZEROED:;
+      status = "ZEROED";
+      break;
+    default:
+      status = "UNKNOWN";
+  }
+  printf("VADDR: %p, STATUS: %s\n", page->vaddr, status);
 }
 
 /* Used for loading of executables. */

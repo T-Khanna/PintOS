@@ -351,6 +351,7 @@ process_exit (void)
   }
 
   #ifdef VM
+    //print_spt(&cur->supp_page_table);
     supp_page_table_destroy(&cur->supp_page_table);
     mmap_file_page_table_destroy(&cur->mmap_file_page_table);
     /*TODO: Remove all mappings in mmap_file_page_table. Also, free address to
@@ -548,7 +549,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!store_segment (file, file_page, (void *) mem_page,
+              if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
             }
@@ -666,9 +667,7 @@ store_segment (struct file *file, off_t ofs, uint8_t *upage,
       enum page_status_t s = page_zero_bytes == PGSIZE ? ZEROED : MMAPPED;
       void* vaddr = pg_round_down(upage);
 
-      if (!supp_page_table_insert(&t->supp_page_table, vaddr, s)) {
-        return false;
-      }
+      supp_page_table_insert(&t->supp_page_table, vaddr, s);
 
       mapid_t mapid = t->process->next_mapid++;
       bool success = mmap_file_page_table_insert(&t->mmap_file_page_table,
@@ -723,14 +722,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
       /* Get a page of memory. */
       uint8_t *kpage = frame_get_page (upage);
-      //uint8_t *kpage = (uint8_t *) frame_get_page(upage);
+      //uint8_t *kpage = palloc_get_page(PAL_USER);
       if (kpage == NULL)
         return false;
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          palloc_free_page (kpage);
+          frame_free_page (kpage);
           return false;
         }
 
@@ -741,7 +740,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable))
         {
-          palloc_free_page (kpage);
+          frame_free_page (kpage);
           return false;
         }
 
@@ -768,7 +767,7 @@ setup_stack (void **esp)
       if (success)
         *esp = PHYS_BASE;
       else
-        palloc_free_page (kpage);
+        frame_free_page (kpage);
     }
   return success;
 }
