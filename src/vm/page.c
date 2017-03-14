@@ -58,9 +58,8 @@ struct supp_page * supp_page_table_get(struct hash *hash, void *vaddr)
 }
 
 /* Inserts the page vaddr into the supplemtary page table unless an entry for it
-   already exists, in which case it is returned without modifying hash.
-   vaddr should point to the start of the page, as returned by pg_round_down */
-bool supp_page_table_insert(struct hash *hash, void *vaddr,
+   already exists, in which case it sets its status. */
+void supp_page_table_insert(struct hash *hash, void *vaddr,
                             enum page_status_t status)
 {
   ASSERT(hash != NULL);
@@ -69,7 +68,10 @@ bool supp_page_table_insert(struct hash *hash, void *vaddr,
   entry->vaddr = pg_round_down(vaddr);
   entry->status = status;
   struct hash_elem *prev = hash_insert(hash, &entry->hash_elem);
-  return prev == NULL;
+  if (prev != NULL) {
+    /* there was already an entry, mark it with status */
+    hash_entry(prev, struct supp_page, hash_elem)->status = status;
+  }
 }
 
 /* Remove and free the entry in the supplementary page table for vaddr. */

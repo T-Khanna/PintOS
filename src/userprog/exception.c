@@ -176,9 +176,8 @@ page_fault (struct intr_frame *f)
   /* Rounds the fault address such that it starts from page boundary. */
   void* vaddr = pg_round_down(fault_addr);
 
-  /* Kernel virtual address. */
-  void* kaddr;
-
+  /* Frame virtual address. */
+  void* kaddr = NULL;
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
 
@@ -198,6 +197,7 @@ page_fault (struct intr_frame *f)
       case ZEROED:
         /* TODO: Allocate an all zeroed page to the frame received from the
                  frame allocator. */
+          printf("Loading a zeroed page: fault address %p and page %p\n", fault_addr, vaddr);
         kaddr = frame_get_page(vaddr);
         install_page(vaddr, kaddr, true);
         break;
@@ -215,6 +215,7 @@ page_fault (struct intr_frame *f)
           = mmap_file_page_table_get(&t->mmap_file_page_table, mapid);
         load_segment(mfp->file, mfp->ofs, mfp->vaddr, mfp->read_bytes,
                      mfp->zero_bytes, mfp->writable);
+        printf("Finished loading segment\n");
         break;
       case LOADED:
         printf("Page faults at address %p in page %p\n", fault_addr, vaddr);

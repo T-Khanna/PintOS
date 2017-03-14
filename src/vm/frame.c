@@ -5,6 +5,7 @@
 #include "threads/malloc.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "userprog/pagedir.h"
 
 
 static unsigned frame_hash_func(const struct hash_elem *e, void *aux);
@@ -48,14 +49,13 @@ void* frame_get_page(void *upage)
     new_frame->t = thread_current();
     new_frame->kaddr = kpage;
     new_frame->uaddr = upage;
-    new_frame->is_userprog = (new_frame->t->process != NULL);
 
     frame_access_lock();
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
     printf("Inserting new loaded page with user address %p\n", upage);
-    //supp_page_table_insert(&new_frame->t->supp_page_table, upage, LOADED);
-
+    //TODO FIXME!?
+    supp_page_table_insert(&new_frame->t->supp_page_table, upage, LOADED);
     frame_access_unlock();
 
     if (success != NULL) {
@@ -77,9 +77,11 @@ void frame_free_page(void *kaddr)
     struct hash_elem *del_elem = hash_delete(&hash_table, &f.hash_elem);
     ASSERT(del_elem != NULL);
     struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
-    
+
     // Frees the page and removes its reference
+    // TODO FIXME !?
     //pagedir_clear_page(del_frame->t->pagedir, del_frame->uaddr);
+    
     palloc_free_page(del_frame->kaddr);
     free(del_frame);
 

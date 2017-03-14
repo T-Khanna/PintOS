@@ -351,7 +351,7 @@ process_exit (void)
   }
 
   #ifdef VM
-    print_spt(&cur->supp_page_table);
+    //print_spt(&cur->supp_page_table);
     supp_page_table_destroy(&cur->supp_page_table);
     mmap_file_page_table_destroy(&cur->mmap_file_page_table);
     /*TODO: Remove all mappings in mmap_file_page_table. Also, free address to
@@ -664,12 +664,12 @@ store_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      enum page_status_t s = page_zero_bytes == PGSIZE ? ZEROED : MMAPPED;
+      enum page_status_t s = MMAPPED; // page_zero_bytes == PGSIZE ? ZEROED : MMAPPED;
       void* vaddr = pg_round_down(upage);
 
-      if (!supp_page_table_insert(&t->supp_page_table, vaddr, s)) {
-        return false;
-      }
+        printf("Storing page %p with status %d\n", vaddr, s);
+
+      supp_page_table_insert(&t->supp_page_table, vaddr, s);
 
       mapid_t mapid = t->process->next_mapid++;
       bool success = mmap_file_page_table_insert(&t->mmap_file_page_table,
@@ -782,24 +782,13 @@ setup_stack (void **esp)
 
   /* Reserve max stack size */
 
-  /*
+  
   while (upage > (uint8_t *) PHYS_BASE - STACK_MAX_SIZE) {
 
-      struct supp_page *entry = (struct supp_page *) malloc(sizeof(struct supp_page));
-      if (entry == NULL) {
-        return false;
-      }
-      entry->vaddr = upage;
-      entry->status = ZEROED;
-
-      if (!supp_page_table_insert_entry(&t->supp_page_table, entry)) {
-        return false;
-      }
+      supp_page_table_insert(&t->supp_page_table, upage, ZEROED);
       // Advance.
       upage -= PGSIZE;
     }
-
-    */
 
   return success;
 }
