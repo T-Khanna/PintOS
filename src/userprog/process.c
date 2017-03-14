@@ -354,7 +354,8 @@ process_exit (void)
     print_spt(&cur->supp_page_table);
     supp_page_table_destroy(&cur->supp_page_table);
     mmap_file_page_table_destroy(&cur->mmap_file_page_table);
-    //TODO: Remove all mappings in mmap_file_page_table.
+    /*TODO: Remove all mappings in mmap_file_page_table. Also, free address to
+            mapid table. */
   #endif
 
   /* Destroy the current process's page directory and switch back
@@ -583,8 +584,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 /* load() helpers. */
 
-static bool install_page (void *upage, void *kpage, bool writable);
-
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
 static bool
@@ -672,8 +671,12 @@ store_segment (struct file *file, off_t ofs, uint8_t *upage,
         return false;
       }
 
-      if (!mmap_file_page_table_insert(&t->mmap_file_page_table, vaddr, file,
-               ofs, read_bytes, zero_bytes, writable)) {
+      mapid_t mapid = t->process->next_mapid++;
+      bool success = mmap_file_page_table_insert(&t->mmap_file_page_table,
+               vaddr, mapid, file, ofs, read_bytes, zero_bytes, writable);
+      success &= add_addr_mapid_mapping(&t->addrs_to_mapids, vaddr, mapid);
+
+      if (!success) {
         return false;
       }
 
@@ -748,6 +751,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
     }
+
+  printf("Returning true after loading\n");
   return true;
 }
 
@@ -776,6 +781,8 @@ setup_stack (void **esp)
   struct thread *t = thread_current();
 
   /* Reserve max stack size */
+
+  /*
   while (upage > (uint8_t *) PHYS_BASE - STACK_MAX_SIZE) {
 
       struct supp_page *entry = (struct supp_page *) malloc(sizeof(struct supp_page));
@@ -788,9 +795,11 @@ setup_stack (void **esp)
       if (!supp_page_table_insert_entry(&t->supp_page_table, entry)) {
         return false;
       }
-      /* Advance. */
+      // Advance.
       upage -= PGSIZE;
     }
+
+    */
 
   return success;
 }
@@ -804,7 +813,7 @@ setup_stack (void **esp)
    with palloc_get_page().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
-static bool
+bool
 install_page (void *upage, void *kpage, bool writable)
 {
   struct thread *t = thread_current ();

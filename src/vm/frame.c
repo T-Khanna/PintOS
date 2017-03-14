@@ -34,6 +34,7 @@ void frame_access_unlock()
 
 void* frame_get_page(void *upage)
 {
+    ASSERT(is_user_vaddr(upage));
     void *kpage = palloc_get_page(PAL_USER | PAL_ZERO);
 
     if (kpage == NULL) {
@@ -52,7 +53,8 @@ void* frame_get_page(void *upage)
     frame_access_lock();
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
-    supp_page_table_insert(&new_frame->t->supp_page_table, upage, LOADED);
+    printf("Inserting new loaded page with user address %p\n", upage);
+    //supp_page_table_insert(&new_frame->t->supp_page_table, upage, LOADED);
 
     frame_access_unlock();
 
@@ -77,7 +79,7 @@ void frame_free_page(void *kaddr)
     struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
     
     // Frees the page and removes its reference
-    pagedir_clear_page(del_frame->t->pagedir, del_frame->uaddr);
+    //pagedir_clear_page(del_frame->t->pagedir, del_frame->uaddr);
     palloc_free_page(del_frame->kaddr);
     free(del_frame);
 
