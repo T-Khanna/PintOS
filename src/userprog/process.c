@@ -29,6 +29,9 @@
 #define WORDSIZE 4
 
 static thread_func start_process NO_RETURN;
+static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
+                          uint32_t read_bytes, uint32_t zero_bytes,
+                          bool writable);
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static int count_args(char *command);
 static void read_args(char **argv, char **file_name, char *command_);
@@ -639,19 +642,19 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
    user process if WRITABLE is true, read-only otherwise.
 
    Return true if successful, false if a memory allocation error
-   or disk read error occurs. */
-bool
+   or insertion error occurs. */
+static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable)
 {
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
-  off_t file_page_offset = ofs;
 
   file_seek (file, ofs);
 
-  struct thread *curr = thread_current();
+  struct thread* t = thread_current();
+  off_t file_page_offset = ofs;
 
   while (read_bytes > 0 || zero_bytes > 0)
     {
@@ -662,10 +665,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       if (page_zero_bytes == PGSIZE) {
-        supp_page_table_insert(&curr->supp_page_table, upage, ZEROED);
+        supp_page_table_insert(&t->supp_page_table, upage, ZEROED);
       } else {
-        supp_page_table_insert(&curr->supp_page_table, upage, MMAPPED);
-        mmap_file_page_table_insert(&curr->mmap_file_page_table, upage, 0, file,
+        supp_page_table_insert(&t->supp_page_table, upage, MMAPPED);
+        mmap_file_page_table_insert(&t->mmap_file_page_table, upage, 0, file,
             file_page_offset, page_read_bytes, writable);
       }
 
@@ -686,15 +689,30 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
+  enum intr_level old_level = intr_disable();
+
   kpage = (uint8_t *) frame_get_page(((uint8_t *) PHYS_BASE) - PGSIZE);
-  if (kpage != NULL)
-    {
+  if (kpage != NULL) {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
         *esp = PHYS_BASE;
       else
         frame_free_page (kpage);
+  }
+
+  intr_set_level(old_level);
+
+  uint8_t *upage = (uint8_t *) PHYS_BASE - 2 * PGSIZE;
+  struct thread *t = thread_current();
+
+  /* Reserve max stack size */
+  while (upage > (uint8_t *) PHYS_BASE - STACK_MAX_SIZE) {
+
+      supp_page_table_insert(&t->supp_page_table, upage, ZEROED);
+      // Advance.
+      upage -= PGSIZE;
     }
+
   return success;
 }
 

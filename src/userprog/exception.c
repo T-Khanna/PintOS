@@ -163,7 +163,7 @@ page_fault (struct intr_frame *f)
 
   /* Check if fault address is in the kernel space or if it is attempting to
      write to a read-only page. */
-  if (!is_user_vaddr(fault_addr) || !not_present) {
+  if (fault_addr == NULL || !is_user_vaddr(fault_addr) || !not_present) {
     process_kill();
   }
 
@@ -171,15 +171,17 @@ page_fault (struct intr_frame *f)
   void* vaddr = pg_round_down(fault_addr);
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
-
   enum page_status_t status = sp->status;
+  void *kaddr = frame_get_page(vaddr);
 
-  /* Get a frame to map to the page we faulted on. */
-  void* kaddr = frame_get_page(vaddr);
+  if (fault_addr <= PHYS_BASE && fault_addr >= PHYS_BASE - STACK_MAX_SIZE) {
+      if (fault_addr != f->esp - 4 && fault_addr != f->esp - 32) {
+          kill(f);
+      }
+  }
 
   /* If the page doesn't exist, kill the process. */
   if (sp == NULL) {
-    if (vaddr <)
     kill(f);
   } else {
     switch (status) {
@@ -196,7 +198,7 @@ page_fault (struct intr_frame *f)
             &t->mmap_file_page_table, vaddr);
         ASSERT(found != NULL);
         file_seek(found->file, found->ofs);
-        ASSERT(file_read(found->file, kaddr, found->size) == found->size);
+        file_read(found->file, kaddr, found->size);
         break;
       case LOADED:
         print_spt(&t->supp_page_table);
@@ -233,15 +235,4 @@ page_fault (struct intr_frame *f)
    *
    *    pagedir_set_page(thread_current()->pagedir, fault_addr, #frame_vaddr#, write);
    */
-
-
-
-
-  /* TODO: Delete this after implementing the above. */
-  // printf ("Page fault at %p: %s error %s page in %s context.\n",
-  //         fault_addr,
-  //         not_present ? "not present" : "rights violation",
-  //         write ? "writing" : "reading",
-  //         user ? "user" : "kernel");
-  // kill (f);
 }

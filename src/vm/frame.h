@@ -2,6 +2,7 @@
 #define VM_FRAME_H
 
 #include <hash.h>
+#include "vm/page.h"
 
 struct frame {
 

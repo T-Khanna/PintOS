@@ -132,3 +132,19 @@ static bool mfpt_less_func(const struct hash_elem *a, const struct hash_elem *b,
   struct mmap_file_page* _b = hash_entry(b, struct mmap_file_page, hash_elem);
   return _a->vaddr < _b->vaddr;
 }
+
+static void print_mmap_entry(struct hash_elem *elem, void *aux UNUSED);
+
+/* print an spt, one line per entry */
+void print_mmap_table(struct hash *table)
+{
+  hash_apply(table, print_mmap_entry);
+}
+
+static void print_mmap_entry(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct mmap_file_page* p = hash_entry(elem, struct mmap_file_page, hash_elem);
+  char* is_writable = p->writable ? "True" : "False";
+  printf("\nMAPID: %d, VADDR: %p, FILE OFFSET: %d, SIZE: %d, WRITEABLE? %s",
+            p->mapid, p->vaddr, p->ofs, p->size, is_writable);
+}
