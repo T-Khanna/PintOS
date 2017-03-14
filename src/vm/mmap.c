@@ -115,7 +115,7 @@ void mmap_file_page_table_destroy(struct hash *table)
 static void free_mfpt_related_resources(struct hash_elem *elem, void *aux UNUSED)
 {
   struct mmap_file_page *p = hash_entry(elem, struct mmap_file_page, hash_elem);
-  file_close(p->file);
+  // file_close(p->file);
 }
 
 static void delete_mfpt(struct hash_elem *elem, void *aux UNUSED)

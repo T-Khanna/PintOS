@@ -53,7 +53,7 @@ void* frame_get_page(void *upage)
     frame_access_lock();
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
-    printf("Inserting new loaded page with user address %p\n", upage);
+    // printf("Inserting new loaded page with user address %p\n", upage);
     //TODO FIXME!?
     supp_page_table_insert(&new_frame->t->supp_page_table, upage, LOADED);
     frame_access_unlock();
@@ -80,9 +80,9 @@ void frame_free_page(void *kaddr)
 
     // Frees the page and removes its reference
     // TODO FIXME !?
-    //pagedir_clear_page(del_frame->t->pagedir, del_frame->uaddr);
-    
-    palloc_free_page(del_frame->kaddr);
+    pagedir_clear_page(del_frame->t->pagedir, del_frame->uaddr);
+
+    //palloc_free_page(del_frame->kaddr);
     free(del_frame);
 
     frame_access_unlock();

@@ -653,7 +653,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
   file_seek (file, ofs);
 
-  printf("Storing...\n");
+  // printf("Storing...\n");
   struct thread* t = thread_current();
 
   while (read_bytes > 0 || zero_bytes > 0)
@@ -667,7 +667,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       enum page_status_t s = page_zero_bytes == PGSIZE ? ZEROED : MMAPPED;
       void* vaddr = pg_round_down(upage);
 
-        printf("Storing page %p with status %d\n", vaddr, s);
+        // printf("Storing page %p with status %d\n", vaddr, s);
 
       supp_page_table_insert(&t->supp_page_table, vaddr, s);
 
@@ -697,7 +697,7 @@ lazy_load_page(struct file* file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
-  printf("Lazy loading...\n");
+  // printf("Lazy loading...\n");
 
   file_seek(file, ofs);
 
@@ -728,7 +728,7 @@ lazy_load_page(struct file* file, off_t ofs, uint8_t *upage,
       return false;
     }
 
-  printf("Returning true after loading\n");
+  // printf("Returning true after loading\n");
   return true;
 }
 

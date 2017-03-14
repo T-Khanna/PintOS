@@ -169,7 +169,7 @@ page_fault (struct intr_frame *f)
 
   /* Check if fault address is in the kernel space or if it is attempting to
      write to a read-only page. */
-  if (!is_user_vaddr(fault_addr) || !not_present) {
+  if (fault_addr == NULL || !is_user_vaddr(fault_addr) || !not_present) {
     process_kill();
   }
 
@@ -197,7 +197,7 @@ page_fault (struct intr_frame *f)
       case ZEROED:
         /* TODO: Allocate an all zeroed page to the frame received from the
                  frame allocator. */
-          printf("Loading a zeroed page: fault address %p and page %p\n", fault_addr, vaddr);
+          // printf("Loading a zeroed page: fault address %p and page %p\n", fault_addr, vaddr);
         kaddr = frame_get_page(vaddr);
         install_page(vaddr, kaddr, true);
         break;
@@ -208,17 +208,17 @@ page_fault (struct intr_frame *f)
         install_page(vaddr, kaddr, true);
         break;
       case MMAPPED:;
-        printf("Lazy loading page at address %p\n", vaddr);
+        // printf("Lazy loading page at address %p\n", vaddr);
         /* TODO: Lazy load page data from mmap table. */
         mapid_t mapid = get_mapid_from_addr(&t->addrs_to_mapids, vaddr);
         struct mmap_file_page* mfp
           = mmap_file_page_table_get(&t->mmap_file_page_table, mapid);
         lazy_load_page(mfp->file, mfp->ofs, mfp->vaddr, mfp->read_bytes,
                        mfp->zero_bytes, mfp->writable);
-        printf("Finished loading segment\n");
+        // printf("Finished loading segment\n");
         break;
       case LOADED:
-        printf("Page faults at address %p in page %p\n", fault_addr, vaddr);
+        // printf("Page faults at address %p in page %p\n", fault_addr, vaddr);
         PANIC("There should be no page fault from page already in memory.");
       default:
         PANIC("unrecognised spt status!");
