@@ -21,6 +21,7 @@ void frame_init (void)
 
 void* frame_get_page(void *upage)
 {
+    ASSERT(is_user_vaddr(upage));
     void *kpage = palloc_get_page(PAL_USER | PAL_ZERO);
 
     if (kpage == NULL) {

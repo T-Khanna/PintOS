@@ -10,8 +10,10 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #ifdef VM
+  #include "vm/frame.h"
   #include "vm/page.h"
   #include "vm/mmap.h"
+  #include "vm/swap.h"
 #endif
 
 /* Number of page faults processed. */
@@ -174,8 +176,8 @@ page_fault (struct intr_frame *f)
   /* Rounds the fault address such that it starts from page boundary. */
   void* vaddr = pg_round_down(fault_addr);
 
-  /* Frame virtual address. */
-  void* fvaddr = NULL;
+  /* Kernel virtual address. */
+  void* kaddr;
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
 
@@ -188,11 +190,14 @@ page_fault (struct intr_frame *f)
       case ZEROED:
         /* TODO: Allocate an all zeroed page to the frame received from the
                  frame allocator. */
-        fvaddr = palloc_get_page(PAL_ZERO);
-        pagedir_set_page(t->pagedir, vaddr, fvaddr, true);
+        kaddr = frame_get_page(vaddr);
+        install_page(vaddr, kaddr, true);
         break;
       case SWAPPED:
         /* TODO: Lazy load page data from swap table. */
+        kaddr = frame_get_page(vaddr);
+        swap_into_memory(&t->swap_table, vaddr, kaddr);
+        install_page(vaddr, kaddr, true);
         break;
       case MMAPPED:;
         printf("WE'RE HERE LADS\n");
