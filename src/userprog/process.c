@@ -349,7 +349,7 @@ process_exit (void)
   }
 
   #ifdef VM
-    print_spt(&cur->supp_page_table);
+    //print_spt(&cur->supp_page_table);
     supp_page_table_destroy(&cur->supp_page_table);
   #endif
 
