@@ -667,6 +667,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       enum page_status_t s = page_zero_bytes == PGSIZE ? ZEROED : MMAPPED;
       void* vaddr = pg_round_down(upage);
 
+        printf("Storing page %p with status %d\n", vaddr, s);
+
       supp_page_table_insert(&t->supp_page_table, vaddr, s);
 
       mapid_t mapid = t->process->next_mapid++;
@@ -725,6 +727,8 @@ lazy_load_page(struct file* file, off_t ofs, uint8_t *upage,
       frame_free_page (kpage);
       return false;
     }
+
+  printf("Returning true after loading\n");
   return true;
 }
 
@@ -794,15 +798,32 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
+  enum intr_level old_level = intr_disable();
+
   kpage = (uint8_t *) frame_get_page(((uint8_t *) PHYS_BASE) - PGSIZE);
-  if (kpage != NULL)
-    {
+  if (kpage != NULL) {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
         *esp = PHYS_BASE;
       else
         frame_free_page (kpage);
+  }
+
+  intr_set_level(old_level);
+
+  uint8_t *upage = (uint8_t *) PHYS_BASE - 2 * PGSIZE;
+  struct thread *t = thread_current();
+
+  /* Reserve max stack size */
+
+
+  while (upage > (uint8_t *) PHYS_BASE - STACK_MAX_SIZE) {
+
+      supp_page_table_insert(&t->supp_page_table, upage, ZEROED);
+      // Advance.
+      upage -= PGSIZE;
     }
+
   return success;
 }
 
