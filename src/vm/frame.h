@@ -18,7 +18,7 @@ struct frame {
 };
 
 void frame_init (void);
-void* frame_get_page(void *uaddr, enum page_status_t s);
+void* frame_get_page(void *uaddr);
 void frame_free_page(void *kaddr);
 
 #endif /* vm/frame.h */
