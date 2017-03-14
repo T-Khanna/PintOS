@@ -205,8 +205,8 @@ page_fault (struct intr_frame *f)
         mapid_t mapid = get_mapid_from_addr(&t->addrs_to_mapids, vaddr);
         struct mmap_file_page* mfp
           = mmap_file_page_table_get(&t->mmap_file_page_table, mapid);
-        load_segment(mfp->file, mfp->ofs, mfp->vaddr, mfp->read_bytes,
-                     mfp->zero_bytes, mfp->writable);
+        lazy_load_page(mfp->file, mfp->ofs, mfp->vaddr, mfp->read_bytes,
+                       mfp->zero_bytes, mfp->writable);
         break;
       case LOADED:
         PANIC("There should be no page fault from page already in memory.");
