@@ -1,5 +1,6 @@
 #include "vm/page.h"
 #include "vm/frame.h"
+#include <stdio.h>
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"

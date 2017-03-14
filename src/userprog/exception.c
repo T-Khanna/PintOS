@@ -9,6 +9,7 @@
 #include "threads/vaddr.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "filesys/file.h"
 #ifdef VM
   #include "vm/frame.h"
   #include "vm/page.h"
@@ -160,13 +161,6 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-  // kill(f);
-  // NOT_REACHED();
-
-
   /* Check if fault address is in the kernel space or if it is attempting to
      write to a read-only page. */
   if (!is_user_vaddr(fault_addr) || !not_present) {
@@ -176,44 +170,43 @@ page_fault (struct intr_frame *f)
   /* Rounds the fault address such that it starts from page boundary. */
   void* vaddr = pg_round_down(fault_addr);
 
-  /* Frame virtual address. */
-  void* kaddr = NULL;
-
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
+
+  enum page_status_t status = sp->status;
+
+  /* Get a frame to map to the page we faulted on. */
+  void* kaddr = frame_get_page(vaddr);
 
   /* If the page doesn't exist, kill the process. */
   if (sp == NULL) {
-    /* TODO: Might need to check for stack growth here. */
+    if (vaddr <)
     kill(f);
   } else {
-    switch (sp->status) {
+    switch (status) {
       case ZEROED:
-        /* TODO: Allocate an all zeroed page to the frame received from the
-                 frame allocator. */
-        kaddr = frame_get_page(vaddr);
-        install_page(vaddr, kaddr, true);
+        /* page we got from frame_get_page is already zeroed! */
         break;
       case SWAPPED:
-        /* TODO: Lazy load page data from swap table. */
-        kaddr = frame_get_page(vaddr);
+        /* Lazy load page data from swap table. */
         swap_into_memory(&t->swap_table, vaddr, kaddr);
-        install_page(vaddr, kaddr, true);
         break;
       case MMAPPED:;
-        printf("WE'RE HERE LADS\n");
-        /* TODO: Lazy load page data from mmap table. */
-        mapid_t mapid = get_mapid_from_addr(&t->addrs_to_mapids, vaddr);
-        struct mmap_file_page* mfp
-          = mmap_file_page_table_get(&t->mmap_file_page_table, mapid);
-        load_segment(mfp->file, mfp->ofs, mfp->vaddr, mfp->read_bytes,
-                     mfp->zero_bytes, mfp->writable);
+        /* load in this page from the file */
+        struct mmap_file_page *found = mmap_file_page_table_get(
+            &t->mmap_file_page_table, vaddr);
+        ASSERT(found != NULL);
+        file_seek(found->file, found->ofs);
+        ASSERT(file_read(found->file, kaddr, found->size) == found->size);
         break;
       case LOADED:
+        print_spt(&t->supp_page_table);
+        printf("faulted on address %p\n", vaddr);
         PANIC("There should be no page fault from page already in memory.");
       default:
         PANIC("unrecognised spt status!");
         NOT_REACHED();
     }
+    install_page(vaddr, kaddr, true);
     sp->status = LOADED;
   }
 

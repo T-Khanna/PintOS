@@ -16,6 +16,7 @@
 #include "filesys/filesys.h"
 #ifdef VM
 #include "vm/mmap.h"
+#include "vm/page.h"
 #endif
 
 /* Function to call the corresponding system call with the syscall number. */
@@ -325,9 +326,12 @@ static void sys_close(struct intr_frame * f)
 
 static void sys_mmap(struct intr_frame * f)
 {
+  mapid_t mapid = -1;
   int fd = (int) get_arg(f, 1);
   void* addr = get_arg(f, 2);
-  mapid_t mapid = -1;
+  if (pg_ofs(addr) != 0) {
+    goto ret;
+  }
   //TODO: Check for valid addr
   struct file* file = find_file(fd);
   if (file == NULL) {
@@ -337,10 +341,19 @@ static void sys_mmap(struct intr_frame * f)
   uint32_t read_bytes = file_length(file);
   unlock_filesys_access();
   struct thread* t = thread_current();
+  //TODO check for overlapping with other pages (probably by inspecting spt)
   mapid = t->process->next_mapid++;
   uint32_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
-  mmap_file_page_table_insert(&t->mmap_file_page_table, addr, mapid, file, 0,
-      read_bytes, zero_bytes, true);
+  /* Make an spt entry for each page */
+  for (uint32_t curr_page = 0;
+       curr_page <= read_bytes % PGSIZE;
+       curr_page += PGSIZE)
+  {
+    //TODO fix size arg to insert
+    mmap_file_page_table_insert(&t->mmap_file_page_table, addr + curr_page,
+        mapid, file, curr_page, PGSIZE, true);
+    supp_page_table_insert(&t->supp_page_table, addr + curr_page, MMAPPED);
+  }
 ret:
   f->eax = mapid;
 }
@@ -354,11 +367,11 @@ static void sys_munmap(struct intr_frame * f)
 void munmap(mapid_t mapping) {
   struct thread* t = thread_current();
   struct mmap_file_page* page
-    = mmap_file_page_table_get(&t->mmap_file_page_table, mapping);
+    = mmap_file_page_table_get(&t->mmap_file_page_table, 0);
   void* addr = page->vaddr;
   //TODO: Free mmapped pages
   mmap_file_page_table_delete_entry(&t->mmap_file_page_table, page);
-  delete_addr_mapid_mapping(&t->addrs_to_mapids, addr);
+  //delete_addr_mapid_mapping(&t->addrs_to_mapids, addr);
 }
 
 /******************************
