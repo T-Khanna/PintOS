@@ -14,11 +14,12 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
-#include "userprog/process.h"
+  #include "userprog/process.h"
 #endif
 #ifdef VM
-#include "vm/page.h"
-#include "vm/swap.h"
+  #include "vm/page.h"
+  #include "vm/swap.h"
+  #include "vm/mmap.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -689,6 +690,7 @@ init_thread (struct thread *t, const char *name, int priority)
   #ifdef VM
   if (t != initial_thread) {
     supp_page_table_init(&t->supp_page_table);
+    mmap_file_page_table_init(&t->mmap_file_page_table);
   }
   #endif
 

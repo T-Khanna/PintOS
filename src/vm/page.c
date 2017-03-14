@@ -107,9 +107,6 @@ void print_spt_entry(struct hash_elem *elem, void *aux UNUSED)
     case ZEROED:;
       status = "ZEROED";
       break;
-    case IN_FILESYS:;
-      status = "IN_FILESYS";
-      break;
     default:
       status = "UNKNOWN";
   }

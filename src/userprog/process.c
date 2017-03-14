@@ -22,6 +22,7 @@
 #ifdef VM
   #include "vm/page.h"
   #include "vm/frame.h"
+  #include "vm/mmap.h"
 #endif
 
 #define MAX_FILE_NAME 16
@@ -95,6 +96,7 @@ init_process (struct thread *t) {
 
   proc->tid = t->tid;
   proc->return_status = RET_ERROR;
+  proc->next_mapid = 1;
   proc->next_fd = 3;
   proc->load_success = false;
   proc->thread_dead = false;
@@ -351,6 +353,8 @@ process_exit (void)
   #ifdef VM
     print_spt(&cur->supp_page_table);
     supp_page_table_destroy(&cur->supp_page_table);
+    mmap_file_page_table_destroy(&cur->mmap_file_page_table);
+    //TODO: Remove all mappings in mmap_file_page_table.
   #endif
 
   /* Destroy the current process's page directory and switch back
@@ -650,8 +654,8 @@ store_segment (struct file *file, off_t ofs, uint8_t *upage,
 
   file_seek (file, ofs);
 
+  printf("Storing...\n");
   struct thread* t = thread_current();
-  struct supp_page* entry;
 
   while (read_bytes > 0 || zero_bytes > 0)
     {
@@ -661,20 +665,15 @@ store_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      entry = (struct supp_page *) malloc(sizeof(struct supp_page));
-      if (entry == NULL) {
+      enum page_status_t s = page_zero_bytes == PGSIZE ? ZEROED : MMAPPED;
+      void* vaddr = pg_round_down(upage);
+
+      if (!supp_page_table_insert(&t->supp_page_table, vaddr, s)) {
         return false;
       }
-      entry->vaddr = pg_round_down(upage);
-      entry->file = file;
-      entry->ofs = ofs;
-      entry->upage = upage;
-      entry->read_bytes = read_bytes;
-      entry->zero_bytes = zero_bytes;
-      entry->writable = writable;
-      entry->status = page_zero_bytes == PGSIZE ? ZEROED : IN_FILESYS;
 
-      if (!supp_page_table_insert_entry(&t->supp_page_table, entry)) {
+      if (!mmap_file_page_table_insert(&t->mmap_file_page_table, vaddr, file,
+               ofs, read_bytes, zero_bytes, writable)) {
         return false;
       }
 
@@ -708,6 +707,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
+
+  printf("Loading...\n");
   file_seek (file, ofs);
 
   while (read_bytes > 0 || zero_bytes > 0)

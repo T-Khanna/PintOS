@@ -1,4 +1,6 @@
 #include "vm/frame.h"
+#include "vm/page.h"
+#include "threads/vaddr.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
@@ -17,7 +19,7 @@ struct lock frame_lock;
 void frame_init (void)
 {
     lock_init(&frame_lock);
-    hash_init(&hash_table, frame_hash_func, frame_hash_less, NULL);
+    hash_init(&hash_table, &frame_hash_func, &frame_hash_less, NULL);
 }
 
 void frame_access_lock()
@@ -30,7 +32,7 @@ void frame_access_unlock()
     lock_release(&frame_lock);
 }
 
-void* frame_get_page(void *upage, enum page_status_t s)
+void* frame_get_page(void *upage)
 {
     void *kpage = palloc_get_page(PAL_USER | PAL_ZERO);
 
@@ -50,10 +52,7 @@ void* frame_get_page(void *upage, enum page_status_t s)
     frame_access_lock();
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
-    supp_page_table_insert(&new_frame->t->supp_page_table, upage, s);
-
-
-
+    supp_page_table_insert(&new_frame->t->supp_page_table, upage, LOADED);
 
     frame_access_unlock();
 

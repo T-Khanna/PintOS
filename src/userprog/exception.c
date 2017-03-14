@@ -9,7 +9,10 @@
 #include "threads/vaddr.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "vm/page.h"
+#ifdef VM
+  #include "vm/page.h"
+  #include "vm/mmap.h"
+#endif
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -158,6 +161,9 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
+  // kill(f);
+  // NOT_REACHED();
+
 
   /* Check if fault address is in the kernel space or if it is attempting to
      write to a read-only page. */
@@ -173,6 +179,7 @@ page_fault (struct intr_frame *f)
 
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
+  struct mmap_file_page* mfp;
 
   if (fault_addr <= PHYS_BASE && fault_addr >= PHYS_BASE - STACK_MAX_SIZE) {
       if (fault_addr != f->esp - 4 && fault_addr != f->esp - 32) {
@@ -188,19 +195,19 @@ page_fault (struct intr_frame *f)
       case ZEROED:
         /* TODO: Allocate an all zeroed page to the frame received from the
                  frame allocator. */
-        fvaddr = frame_get_page(vaddr, ZEROED);
-        pagedir_set_page(t->pagedir, vaddr, fvaddr, sp->writable);
+        fvaddr = frame_get_page(vaddr);
+        //fvaddr = palloc_get_page(PAL_ZERO);
+        pagedir_set_page(t->pagedir, vaddr, fvaddr, true);
         break;
       case SWAPPED:
         /* TODO: Lazy load page data from swap table. */
         break;
       case MMAPPED:
+        printf("WE'RE HERE LADS\n");
         /* TODO: Lazy load page data from mmap table. */
-        break;
-      case IN_FILESYS:
-        /* TODO: Lazy load page data for the executable. */
-        load_segment(sp->file, sp->ofs, sp->upage, sp->read_bytes,
-                     sp->zero_bytes, sp->writable);
+        mfp = mmap_file_page_table_get(&t->mmap_file_page_table, vaddr);
+        load_segment(mfp->file, mfp->ofs, mfp->vaddr, mfp->read_bytes,
+                     mfp->zero_bytes, mfp->writable);
         break;
       case LOADED:
         PANIC("There should be no page fault from page already in memory.");
