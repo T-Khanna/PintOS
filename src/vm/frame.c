@@ -1,5 +1,6 @@
 #include "vm/frame.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
@@ -12,7 +13,7 @@ static bool frame_hash_less(const struct hash_elem *e1,
 static void frame_access_lock(void);
 static void frame_access_unlock(void);
 static struct frame * choose_victim(void);
-static void * frame_evict(struct frame *victim);
+static void frame_evict(struct frame *victim);
 struct hash hash_table;
 struct lock frame_lock;
 
@@ -38,10 +39,13 @@ void* frame_get_page(void *upage)
     void *kpage = palloc_get_page(PAL_USER | PAL_ZERO);
 
     if (kpage == NULL) {
-       frame_evict();
-       // TODO some more things probably
+      /* make space and try again */
+      frame_evict(choose_victim());
+      kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+      ASSERT(kpage != NULL);
     }
     struct frame *new_frame = (struct frame *) malloc(sizeof(struct frame));
+    ASSERT(new_frame != NULL);
     new_frame->t = thread_current();
     new_frame->kaddr = kpage;
     new_frame->uaddr = upage;
@@ -87,7 +91,7 @@ static struct frame * choose_victim(void)
 {
   ASSERT(!hash_empty(&hash_table));
 
-  struct frame *victim;
+  struct frame *victim = NULL;
 
   //TODO make this generally not awful, currently returns first frame in table
   frame_access_lock();
@@ -100,15 +104,26 @@ static struct frame * choose_victim(void)
   }
 
   frame_access_unlock();
+  /* make sure we found a victim */
+  ASSERT(victim != NULL);
   return victim;
 }
 
-/* Evict a frame from memory, and return the kernel address of the page it
-   previously occupied. */
-static void * frame_evict(struct frame *victim)
+/* Evict a frame from memory, (also frees it's frame table entry.) */
+static void frame_evict(struct frame *victim)
 {
-  PANIC ("ERRORRRR\n");
-  // YOUR EVICTION CODE HERE FROM ONLY £50/WEEK CALL NOW
+  /* swap the frame out to disk. */
+  swap_to_disk(&victim->t->swap_table, victim->uaddr, victim->kaddr);
+
+  /* update the victim's spt */
+  supp_page_table_insert(&victim->t->supp_page_table, victim->uaddr, SWAPPED);
+
+  /* free the page and frame table entry */
+  palloc_free_page(victim->kaddr);
+  frame_access_lock();
+  hash_delete(&hash_table, &victim->hash_elem);
+  frame_access_unlock();
+  free(victim);
 }
 
 unsigned frame_hash_func(const struct hash_elem *e_, void *aux UNUSED)

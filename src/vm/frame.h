@@ -17,6 +17,5 @@ struct frame {
 void frame_init (void);
 void* frame_get_page(void *uaddr);
 void frame_free_page(void *kaddr);
-struct frame * choose_victim(void);
 
 #endif /* vm/frame.h */
