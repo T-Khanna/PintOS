@@ -10,6 +10,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "vm/page.h"
+#include "vm/frame.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -169,7 +170,7 @@ page_fault (struct intr_frame *f)
   void* vaddr = pg_round_down(fault_addr);
 
   /* Frame virtual address. */
-  void* fvaddr = NULL;
+  void* kaddr = NULL;
 
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
@@ -183,19 +184,16 @@ page_fault (struct intr_frame *f)
       case ZEROED:
         /* TODO: Allocate an all zeroed page to the frame received from the
                  frame allocator. */
-        fvaddr = palloc_get_page(PAL_ZERO);
-        pagedir_set_page(t->pagedir, vaddr, fvaddr, sp->writable);
+        kaddr = frame_get_page(vaddr);
+        pagedir_set_page(t->pagedir, vaddr, kaddr, sp->writable);
         break;
       case SWAPPED:
         /* TODO: Lazy load page data from swap table. */
         break;
       case MMAPPED:
-        /* TODO: Lazy load page data from mmap table. */
-        break;
-      case IN_FILESYS:
-        /* TODO: Lazy load page data for the executable. */
         load_segment(sp->file, sp->ofs, sp->upage, sp->read_bytes,
-                     sp->zero_bytes, sp->writable);
+                   sp->zero_bytes, sp->writable);
+        /* TODO: Lazy load page data from mmap table. */
         break;
       case LOADED:
         PANIC("There should be no page fault from page already in memory.");

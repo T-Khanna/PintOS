@@ -672,7 +672,7 @@ store_segment (struct file *file, off_t ofs, uint8_t *upage,
       entry->read_bytes = read_bytes;
       entry->zero_bytes = zero_bytes;
       entry->writable = writable;
-      entry->status = page_zero_bytes == PGSIZE ? ZEROED : IN_FILESYS;
+      entry->status = page_zero_bytes == PGSIZE ? ZEROED : MMAPPED;
 
       if (!supp_page_table_insert_entry(&t->supp_page_table, entry)) {
         return false;

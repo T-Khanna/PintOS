@@ -10,7 +10,6 @@ enum page_status_t {
   MMAPPED,    /* Memory mapped and stored in the mmap table */
   SWAPPED,    /* Swapped out to disk */
   ZEROED,     /* Zeroed out page */
-  IN_FILESYS  /* Part of a lazy loaded executable, not yet loaded */
 };
 
 struct supp_page {
@@ -29,7 +28,7 @@ bool supp_page_table_init(struct hash *table);
 void supp_page_table_destroy(struct hash *table);
 struct supp_page * supp_page_table_get(struct hash *hash,
     void *vaddr);
-bool supp_page_table_insert(struct hash *hash, void *vaddr,
+void supp_page_table_insert(struct hash *hash, void *vaddr,
                             enum page_status_t);
 void supp_page_table_remove(struct hash *hash, void *vaddr);
 void print_spt(struct hash *spt);
