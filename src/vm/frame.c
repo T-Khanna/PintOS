@@ -11,7 +11,8 @@ static bool frame_hash_less(const struct hash_elem *e1,
      const struct hash_elem *e2, void *aux);
 static void frame_access_lock(void);
 static void frame_access_unlock(void);
-static void frame_evict(void);
+static struct frame * choose_victim(void);
+static void * frame_evict(struct frame *victim);
 struct hash hash_table;
 struct lock frame_lock;
 
@@ -31,6 +32,7 @@ void frame_access_unlock()
     lock_release(&frame_lock);
 }
 
+/* Get a frame of memory for the current thread */
 void* frame_get_page(void *upage)
 {
     void *kpage = palloc_get_page(PAL_USER | PAL_ZERO);
@@ -60,6 +62,7 @@ void* frame_get_page(void *upage)
 
 }
 
+/* Remove a frame from the frame table, and give up the frame */
 void frame_free_page(void *kaddr)
 {
     struct frame f;
@@ -79,10 +82,33 @@ void frame_free_page(void *kaddr)
     frame_access_unlock();
 }
 
-static void frame_evict(void)
+/* Choose a frame as a candidate for eviction. */
+static struct frame * choose_victim(void)
 {
-    PANIC ("ERRORRRR\n");
-    // YOUR EVICTION CODE HERE FROM ONLY £50/WEEK CALL NOW
+  ASSERT(!hash_empty(&hash_table));
+
+  struct frame *victim;
+
+  //TODO make this generally not awful, currently returns first frame in table
+  frame_access_lock();
+
+  struct hash_iterator iter;
+  hash_first(&iter, &hash_table);
+  while (hash_next(&iter)) {
+    struct frame *cur = hash_entry(hash_cur(&iter), struct frame, hash_elem);
+    victim = cur;
+  }
+
+  frame_access_unlock();
+  return victim;
+}
+
+/* Evict a frame from memory, and return the kernel address of the page it
+   previously occupied. */
+static void * frame_evict(struct frame *victim)
+{
+  PANIC ("ERRORRRR\n");
+  // YOUR EVICTION CODE HERE FROM ONLY £50/WEEK CALL NOW
 }
 
 unsigned frame_hash_func(const struct hash_elem *e_, void *aux UNUSED)
