@@ -200,7 +200,13 @@ page_fault (struct intr_frame *f)
         /* load in this page from the file */
         struct mmap_file_page *found = mmap_file_page_table_get(
             &t->mmap_file_page_table, vaddr);
-        ASSERT(found != NULL);
+        // ASSERT(found != NULL);
+        if (found == NULL) {
+          printf("UNLUCKY\n");
+          printf("VADDR IS: %p\n", vaddr);
+          print_mmap_table(&t->mmap_file_page_table);
+          process_kill();
+        }
         file_seek(found->file, found->ofs);
         file_read(found->file, kaddr, found->size);
         break;
