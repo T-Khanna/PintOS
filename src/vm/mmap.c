@@ -158,3 +158,18 @@ static void print_mmap_entry(struct hash_elem *elem, void *aux UNUSED)
   printf("MAPID: %d, VADDR: %p, FILE OFFSET: %d, SIZE: %d, WRITEABLE? %s\n",
             p->mapid, p->vaddr, p->ofs, p->size, is_writable);
 }
+
+static void print_mapped_entry(struct hash_elem *elem, void *aux UNUSED);
+
+/* print an spt, one line per entry */
+void print_mappings(struct hash *table)
+{
+  hash_apply(table, print_mapped_entry);
+}
+
+static void print_mapped_entry(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct mapid_to_addr* mta = hash_entry(elem, struct mapid_to_addr, hash_elem);
+  printf("MAPID: %d, START ADDR: %p, END ADDR: %p\n", mta->mapid,
+      mta->start_addr, mta->end_addr);
+}
