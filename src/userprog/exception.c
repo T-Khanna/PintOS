@@ -188,6 +188,7 @@ page_fault (struct intr_frame *f)
     char status[10];
     status_string(sp->status, status);
     void *kaddr = frame_get_page(vaddr);
+    bool writable = true;
     switch (sp->status) {
       case ZEROED:
         /* page we got from frame_get_page is already zeroed! */
@@ -200,6 +201,7 @@ page_fault (struct intr_frame *f)
         /* load in this page from the file */
         struct mmap_file_page *found = mmap_file_page_table_get(
             &t->mmap_file_page_table, vaddr);
+        writable = found->writable;
         lock_filesys_access();
         file_seek(found->file, found->ofs);
         file_read(found->file, kaddr, found->size);
@@ -213,7 +215,7 @@ page_fault (struct intr_frame *f)
         PANIC("unrecognised spt status!");
         NOT_REACHED();
     }
-    install_page(vaddr, kaddr, true);
+    install_page(vaddr, kaddr, writable);
     sp->status = LOADED;
   }
 
