@@ -179,6 +179,4 @@ void swap_to_disk(struct hash *table, void *vaddr, void *kaddr)
 
     ASSERT(false);
   }
-
-  //lock_release(&swap_lock);
 }
