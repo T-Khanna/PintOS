@@ -87,7 +87,7 @@ void frame_free_page(void *kaddr)
     // TODO FIXME !?
     pagedir_clear_page(del_frame->t->pagedir, del_frame->uaddr);
 
-    //palloc_free_page(del_frame->kaddr);
+    palloc_free_page(del_frame->kaddr);
     free(del_frame);
 
     frame_access_unlock();
