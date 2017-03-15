@@ -203,10 +203,12 @@ page_fault (struct intr_frame *f)
     switch (sp->status) {
       case ZEROED:
         /* page we got from frame_get_page is already zeroed! */
+        sp->status = LOADED;
         break;
       case SWAPPED:
         /* Lazy load page data from swap table. */
         swap_into_memory(&t->swap_table, vaddr, kaddr);
+
         break;
       case MMAPPED:;
         /* load in this page from the file */
@@ -217,6 +219,7 @@ page_fault (struct intr_frame *f)
         file_seek(found->file, found->ofs);
         file_read(found->file, kaddr, found->size);
         unlock_filesys_access();
+        sp->status = MMAPPED;
         break;
       case LOADED:
         print_spt(&t->supp_page_table);
@@ -227,7 +230,6 @@ page_fault (struct intr_frame *f)
         NOT_REACHED();
     }
     install_page(vaddr, kaddr, writable);
-    sp->status = LOADED;
   }
 
   /* 1. Locate page that faulted in SPT. If memory reference is valid, use the
