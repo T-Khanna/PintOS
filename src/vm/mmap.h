@@ -46,7 +46,7 @@ bool mmap_file_page_table_insert(struct hash* table, void* vaddr, mapid_t mapid,
 bool mmap_file_page_table_delete_entry(struct hash* table,
     struct mmap_file_page* page);
 void mmap_file_page_table_destroy(struct hash *table);
-
+void print_mappings(struct hash *table);
 
 
 void print_mmap_table(struct hash *table);
