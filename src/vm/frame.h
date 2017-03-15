@@ -10,6 +10,7 @@ struct frame {
     void *uaddr;                /* The address in user memory. */
     void *kaddr;                /* Reference to page address in kernel vm.
                                    Also the key used for the hash table. */
+    bool clock_bit;             /* Used in clock page replacement algorithm */
     struct hash_elem hash_elem; /* Hash table element */
 
 };

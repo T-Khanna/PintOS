@@ -75,7 +75,7 @@ void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED)
 static swap_index_t allocate_slot(void)
 {
   /* Scan the entire bitmap for an unmarked slot */
-  size_t index = bitmap_scan(slot_usage, 0, num_slots - 1, false);
+  size_t index = bitmap_scan(slot_usage, 0, 1, false);
   if (index != BITMAP_ERROR) {
     bitmap_mark(slot_usage, index);
   }

@@ -187,7 +187,6 @@ page_fault (struct intr_frame *f)
   } else {
     char status[10];
     status_string(sp->status, status);
-    //printf("PAGE FAULT WITH ADDRESS %p, SPT STATUS: %s\n", vaddr, status);
     void *kaddr = frame_get_page(vaddr);
     switch (sp->status) {
       case ZEROED:
