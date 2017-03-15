@@ -349,13 +349,12 @@ static void sys_mmap(struct intr_frame * f)
   uint32_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
   /* Make an spt entry for each page */
 
-  // printf("VADDR IN SYS_MMAP IS: %p, MAPID IS: %d\n", addr, mapid);
+  file = file_reopen(file);
   uint32_t curr_page;
   for (curr_page = 0;
        curr_page <= read_bytes % PGSIZE;
        curr_page += PGSIZE)
   {
-    //TODO fix size arg to insert
     mmap_file_page_table_insert(&t->mmap_file_page_table, addr + curr_page,
         mapid, file, curr_page, PGSIZE, true);
     supp_page_table_insert(&t->supp_page_table, addr + curr_page, MMAPPED);
@@ -375,11 +374,13 @@ static void sys_munmap(struct intr_frame * f)
 void munmap(mapid_t mapping) {
   struct thread* t = thread_current();
   struct mapid_to_addr* mapped_addrs = get_mapping(&t->mappings, mapping);
+  struct file *file = NULL;
   for (void* curr = mapped_addrs->start_addr;
        curr < mapped_addrs->end_addr;
        curr += PGSIZE) {
     struct mmap_file_page* page
       = mmap_file_page_table_get(&t->mmap_file_page_table, curr);
+    file = page->file;
     mmap_file_page_table_delete_entry(&t->mmap_file_page_table, page);
     void* kaddr = pagedir_get_page(t->pagedir, curr);
     if (kaddr != NULL) {
@@ -389,8 +390,7 @@ void munmap(mapid_t mapping) {
     supp_page_table_remove(&t->supp_page_table, curr);
   }
   delete_mapping(&t->mappings, mapping);
-  // printf("AFTER DELETION\n");
-  // print_mmap_table(&t->mmap_file_page_table);
+  file_close(file);
 }
 
 /******************************
