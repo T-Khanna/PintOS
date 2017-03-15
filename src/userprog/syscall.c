@@ -443,22 +443,20 @@ static void check_safe_access(const void *ptr, unsigned size)
        ptr <= base + size;
        ptr = pg_round_down(ptr + PGSIZE)) {
       ptr = pg_round_down(ptr);
+      //TODO CLEAN THIS IF CONDITION!!! DON'T MAKE MARK SAD :'(
     if (!is_user_vaddr(ptr)
         || supp_page_table_get(&cur->supp_page_table, ptr) == NULL) {
 
-      if (ptr == NULL) {
-          process_kill();
-      }
-     
-     if (ptr >= (const void *) PHYS_BASE - STACK_MAX_SIZE && ptr < PHYS_BASE) {
-         return;
-     }  
-     //     return;
-     // }
+    //TODO FIXME MAKE THIS NICER, TOO MUCH REPETITION
 
-     //   printf("The unmapped address is %p\n", ptr);
-       // print_spt(&cur->supp_page_table);
-      process_kill();
+     if (ptr != NULL &&
+             (ptr >= (const void *) PHYS_BASE - STACK_MAX_SIZE 
+              && ptr < PHYS_BASE)
+             (ptr >= *cur->esp || ptr == *cur->esp - 4
+              || ptr == *cur->esp - 32)) {
+         return;
+     }
+     process_kill();
     }
   }
 }
