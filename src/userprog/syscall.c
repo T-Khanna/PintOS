@@ -421,8 +421,13 @@ static void check_safe_access(const void *ptr, unsigned size)
   for (const void const* base = ptr;
        ptr <= base + size;
        ptr = pg_round_down(ptr + PGSIZE)) {
+      //printf("Ptr before: %p\n");
+      ptr = pg_round_down(ptr);
+      //printf("Ptr after: %p\n");
     if (!is_user_vaddr(ptr)
-        || pagedir_get_page(cur->pagedir, ptr) == NULL) {
+        || supp_page_table_get(&cur->supp_page_table, ptr) == NULL) {
+     //   printf("The unmapped address is %p\n", ptr);
+       // print_spt(&cur->supp_page_table);
       process_kill();
     }
   }
