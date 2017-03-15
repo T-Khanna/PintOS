@@ -75,6 +75,7 @@ static void
 syscall_handler (struct intr_frame *f)
 {
   check_pointer(f->esp);
+  thread_current()->esp = &f->esp;
   int32_t syscall_number = *(int32_t *) f->esp;
   /* Kill process if the system call number is bad. */
   if (syscall_number < 0 || syscall_number > IMPLEMENTED_SYSCALLS) {
@@ -218,18 +219,15 @@ static void sys_read(struct intr_frame * f)
     for (unsigned i = 0; i < size; i++) {
       buf[i] = input_getc();
     }
-
     bytes_read = size;
 
   } else {
     /* Otherwise we're reading from a file instead. */
     lock_filesys_access();
-
     struct file *file = find_file(fd);
     if (file != NULL) {
       bytes_read = file_read(file, buffer, size);
     }
-
     unlock_filesys_access();
   }
   f->eax = bytes_read;
@@ -447,6 +445,19 @@ static void check_safe_access(const void *ptr, unsigned size)
       ptr = pg_round_down(ptr);
     if (!is_user_vaddr(ptr)
         || supp_page_table_get(&cur->supp_page_table, ptr) == NULL) {
+
+      if (ptr == NULL) {
+          process_kill();
+      }
+     
+     if (ptr >= (const void *) PHYS_BASE - STACK_MAX_SIZE && ptr < PHYS_BASE) {
+         return;
+     }  
+     //     return;
+     // }
+
+     //   printf("The unmapped address is %p\n", ptr);
+       // print_spt(&cur->supp_page_table);
       process_kill();
     }
   }

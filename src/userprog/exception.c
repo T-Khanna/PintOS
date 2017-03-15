@@ -172,12 +172,15 @@ page_fault (struct intr_frame *f)
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
 
+  /* If the page fault happened because of a syscall, use the saved esp */
+  void *esp = (f->eip > 0xc0000000 ? *t->esp : f->esp);
+
   /* If the page doesn't exist, kill the process. */
   if (sp == NULL) {
     /* check whether it's a valid stack access */
     if (vaddr >= (uint8_t *) PHYS_BASE - STACK_MAX_SIZE &&
-        (fault_addr >= f->esp || fault_addr == f->esp - 4
-          || fault_addr == f->esp - 32)) {
+        (fault_addr >= esp || fault_addr == esp - 4
+          || fault_addr == esp - 32)) {
       void *kaddr = frame_get_page(vaddr);
       supp_page_table_insert(&t->supp_page_table, vaddr, LOADED);
       install_page(vaddr, kaddr, true);

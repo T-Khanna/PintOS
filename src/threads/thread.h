@@ -136,6 +136,7 @@ struct thread
                                            virtual addresses */
     struct hash mmap_file_page_table;   /* Memory mapped files */
     struct hash swap_table;             /* Thread's swap table */
+    void **esp;
 #endif
 
     /* Owned by thread.c. */
