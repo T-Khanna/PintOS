@@ -19,16 +19,24 @@ struct mmap_file_page {
   struct hash_elem hash_elem; /* Bookkeeping */
 };
 
-struct addr_to_mapid {
-  void* vaddr;                /**/
-  mapid_t mapid;              /**/
-  struct hash_elem hash_elem; /**/
+// struct file_page {
+//   void* kaddr;
+//   struct file* file;
+//   struct hash_elem hash_elem;
+// };
+
+struct mapid_to_addr {
+  mapid_t mapid;              /* Id of the mapping referred to */
+  void* start_addr;          /* Starting user address from the mapping */
+  void* end_addr;              /* Number of bytes of the mmapped file */
+  struct hash_elem hash_elem; /* Bookkeeping */
 };
 
-bool address_mapid_init(struct hash* table);
-bool add_addr_mapid_mapping(struct hash* table, void* vaddr, mapid_t mapid);
-mapid_t get_mapid_from_addr(struct hash* table, void* vaddr);
-bool delete_addr_mapid_mapping(struct hash* table, void* vaddr);
+bool mapping_init(struct hash* table);
+bool add_mapping(struct hash* table, mapid_t mapid, void* start_addr,
+    void* end_addr);
+struct mapid_to_addr* get_mapping(struct hash* table, mapid_t mapid);
+bool delete_mapping(struct hash* table, mapid_t mapid);
 
 bool mmap_file_page_table_init(struct hash* file_table);
 struct mmap_file_page * mmap_file_page_table_get(struct hash* table,
