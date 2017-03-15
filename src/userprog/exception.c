@@ -172,9 +172,6 @@ page_fault (struct intr_frame *f)
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
 
-  //printf("THE FAULTY ADDRESS IS AT %p\n", fault_addr);
-  //print_spt(&t->supp_page_table);
-
   /* If the page fault happened because of a syscall, use the saved esp */
   void *esp = (f->eip > 0xc0000000 ? *t->esp : f->esp);
 
