@@ -38,6 +38,7 @@ static void read_args(char **argv, char **file_name, char *command_);
 static void push_args(struct intr_frame *if_, int argc, char **argv);
 static char* strcpy_stack(char *dst, char *src);
 static void push_word(uint32_t *word, struct intr_frame *if_);
+static void unmap_elem(struct hash_elem *elem, void *aux UNUSED);
 
 /* Starts a new thread running a command, with the program name as the first
    word and any arguments following it.
@@ -332,6 +333,9 @@ process_exit (void)
     }
   }
 
+  /* Unmap all memory mapped files */
+  hash_apply(&cur->mappings, unmap_elem);
+
   /* Close all of the currently open files and free their descriptors. */
   while (!list_empty(&thread_current()->descriptors)) {
     struct descriptor *d = list_entry(
@@ -353,9 +357,6 @@ process_exit (void)
   #ifdef VM
     //print_spt(&cur->supp_page_table);
     supp_page_table_destroy(&cur->supp_page_table);
-    mmap_file_page_table_destroy(&cur->mmap_file_page_table);
-    /*TODO: Remove all mappings in mmap_file_page_table. Also, free address to
-            mapid table. */
   #endif
 
   /* Destroy the current process's page directory and switch back
@@ -374,6 +375,11 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+}
+
+static void unmap_elem(struct hash_elem *elem, void *aux UNUSED) {
+  struct mapid_to_addr *mta = hash_entry(elem, struct mapid_to_addr, hash_elem);
+  munmap(mta->mapid);
 }
 
 /* Sets up the CPU for running user code in the current

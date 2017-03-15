@@ -29,10 +29,6 @@ static void* get_arg(struct intr_frame *, int n);
 /* Ensures that only one syscall can touch the file system at a time. */
 static struct lock filesys_lock;
 
-/* Function to lock and unlock file system access. */
-static void lock_filesys_access(void);
-static void unlock_filesys_access(void);
-
 /* System call function declarations. */
 static void sys_halt(struct intr_frame *);
 static void sys_exit(struct intr_frame *);
@@ -344,7 +340,7 @@ static void sys_mmap(struct intr_frame * f)
   uint32_t read_bytes = file_length(file);
   unlock_filesys_access();
 
-  if (check_any_mapped(addr, addr + read_bytes)) {
+  if (read_bytes == 0 || check_any_mapped(addr, addr + read_bytes)) {
     goto ret;
   }
 
@@ -414,14 +410,18 @@ struct file *find_file (int fd)
   return NULL;
 }
 
-static void lock_filesys_access(void)
+void lock_filesys_access(void)
 {
-  lock_acquire(&filesys_lock);
+  if (!lock_held_by_current_thread(&filesys_lock)) {
+    lock_acquire(&filesys_lock);
+  }
 }
 
-static void unlock_filesys_access(void)
+void unlock_filesys_access(void)
 {
-  lock_release(&filesys_lock);
+  if (lock_held_by_current_thread(&filesys_lock)) {
+    lock_release(&filesys_lock);
+  }
 }
 
 static void check_pointer(const void *ptr)

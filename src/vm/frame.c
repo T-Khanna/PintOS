@@ -3,11 +3,13 @@
 #include "threads/vaddr.h"
 #include "vm/swap.h"
 #include "vm/mmap.h"
+#include "filesys/file.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
+#include "userprog/syscall.h"
 
 
 static unsigned frame_hash_func(const struct hash_elem *e, void *aux);
@@ -144,11 +146,13 @@ static void frame_evict(struct frame *victim)
       break;
     case MMAPPED:
       /* write the frame back to disk, if it has been modified */
-      if (pagedir_is_dirty(&victim->t->pagedir, victim->uaddr)) {
+      if (pagedir_is_dirty(victim->t->pagedir, victim->uaddr)) {
         struct mmap_file_page *mmfp = mmap_file_page_table_get(
             &victim->t->mmap_file_page_table, victim->uaddr);
+        lock_filesys_access();
         file_seek(mmfp->file, mmfp->ofs);
         file_write(mmfp->file, victim->kaddr, mmfp->size);
+        unlock_filesys_access();
       }
       break;
     case SWAPPED:
