@@ -171,8 +171,6 @@ page_fault (struct intr_frame *f)
   void* vaddr = pg_round_down(fault_addr);
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
-  enum page_status_t status = sp->status;
-  void *kaddr = frame_get_page(vaddr);
 
   if (fault_addr <= PHYS_BASE && fault_addr >= PHYS_BASE - STACK_MAX_SIZE) {
       if (fault_addr != f->esp - 4 && fault_addr != f->esp - 32) {
@@ -184,7 +182,11 @@ page_fault (struct intr_frame *f)
   if (sp == NULL) {
     kill(f);
   } else {
-    switch (status) {
+    char status[10];
+    status_string(sp->status, status);
+    //printf("PAGE FAULT WITH ADDRESS %p, SPT STATUS: %s\n", vaddr, status);
+    void *kaddr = frame_get_page(vaddr);
+    switch (sp->status) {
       case ZEROED:
         /* page we got from frame_get_page is already zeroed! */
         break;
@@ -198,7 +200,7 @@ page_fault (struct intr_frame *f)
             &t->mmap_file_page_table, vaddr);
         ASSERT(found != NULL);
         file_seek(found->file, found->ofs);
-        file_read(found->file, kaddr, found->size);
+        file_read(found->file, kaddr, found->size) ;
         break;
       case LOADED:
         print_spt(&t->supp_page_table);

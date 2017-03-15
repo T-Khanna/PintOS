@@ -1,6 +1,7 @@
 #include "vm/page.h"
 #include "vm/frame.h"
 #include <stdio.h>
+#include <string.h>
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -96,24 +97,30 @@ void print_spt(struct hash *spt)
 void print_spt_entry(struct hash_elem *elem, void *aux UNUSED)
 {
   struct supp_page *page = hash_entry(elem, struct supp_page, hash_elem);
-  char *status;
-  switch (page->status) {
+  char status[10];
+  status_string(page->status, status);
+
+  printf("VADDR: %p, STATUS: %s\n", page->vaddr, status);
+}
+
+/* put the status string into the string passed */
+void status_string(enum page_status_t status, char *str) {
+  switch (status) {
     case LOADED:;
-      status = "LOADED";
+      strlcpy(str, "LOADED", 10);
       break;
     case MMAPPED:;
-      status = "MMAPED";
+      strlcpy(str, "MMAPPED", 10);
       break;
     case SWAPPED:;
-      status = "SWAPPED";
+      strlcpy(str, "SWAPPED", 10);
       break;
     case ZEROED:;
-      status = "ZEROED";
+      strlcpy(str, "ZEROED", 10);
       break;
     default:
-      status = "UNKNOWN";
+      strlcpy(str, "UNKOWN", 10);
   }
-  printf("VADDR: %p, STATUS: %s\n", page->vaddr, status);
 }
 
 /* Used for loading of executables. */

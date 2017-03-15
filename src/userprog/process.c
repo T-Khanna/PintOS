@@ -691,9 +691,13 @@ setup_stack (void **esp)
 
   enum intr_level old_level = intr_disable();
 
-  kpage = (uint8_t *) frame_get_page(((uint8_t *) PHYS_BASE) - PGSIZE);
+  struct thread *t = thread_current();
+
+  uint8_t *page_addr = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  kpage = (uint8_t *) frame_get_page(page_addr);
   if (kpage != NULL) {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      success = install_page (page_addr, kpage, true);
+      supp_page_table_insert(&t->supp_page_table, page_addr, LOADED);
       if (success)
         *esp = PHYS_BASE;
       else
@@ -703,7 +707,7 @@ setup_stack (void **esp)
   intr_set_level(old_level);
 
   uint8_t *upage = (uint8_t *) PHYS_BASE - 2 * PGSIZE;
-  struct thread *t = thread_current();
+
 
   /* Reserve max stack size */
   while (upage > (uint8_t *) PHYS_BASE - STACK_MAX_SIZE) {

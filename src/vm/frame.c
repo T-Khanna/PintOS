@@ -53,9 +53,6 @@ void* frame_get_page(void *upage)
     frame_access_lock();
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
-    // printf("Inserting new loaded page with user address %p\n", upage);
-    //TODO FIXME!?
-    supp_page_table_insert(&new_frame->t->supp_page_table, upage, LOADED);
     frame_access_unlock();
 
     if (success != NULL) {
