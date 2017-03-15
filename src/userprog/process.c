@@ -696,7 +696,7 @@ setup_stack (void **esp)
   uint8_t *page_addr = ((uint8_t *) PHYS_BASE) - PGSIZE;
   kpage = (uint8_t *) frame_get_page(page_addr);
   if (kpage != NULL) {
-      success = install_page (page_addr, kpage, true);
+      success = install_page(page_addr, kpage, true);
       supp_page_table_insert(&t->supp_page_table, page_addr, LOADED);
       if (success)
         *esp = PHYS_BASE;

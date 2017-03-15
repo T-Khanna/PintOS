@@ -202,7 +202,7 @@ page_fault (struct intr_frame *f)
             &t->mmap_file_page_table, vaddr);
         ASSERT(found != NULL);
         file_seek(found->file, found->ofs);
-        file_read(found->file, kaddr, found->size) ;
+        file_read(found->file, kaddr, found->size);
         break;
       case LOADED:
         print_spt(&t->supp_page_table);

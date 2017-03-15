@@ -54,10 +54,11 @@ static void check_safe_access(const void *ptr, unsigned size);
 static void check_pointer(const void *ptr);
 static void check_pointer_range(const void *ptr, unsigned size);
 static void check_safe_string(const char *str);
+static bool check_any_mapped(void *start, void *stop);
 
 
 /* Contiguous number of system calls implemented, starting from 0 (HALT). */
-#define IMPLEMENTED_SYSCALLS 12
+#define IMPLEMENTED_SYSCALLS 14
 
 /* Function pointer table for system calls. Indexed by the syscall number. */
 static void (*system_calls[]) (struct intr_frame *) = {
@@ -332,16 +333,21 @@ static void sys_mmap(struct intr_frame * f)
   if (pg_ofs(addr) != 0) {
     goto ret;
   }
-  //TODO: Check for valid addr
+  /* addr is page_aligned here */
   struct file* file = find_file(fd);
-  if (file == NULL) {
+  if (file == NULL || addr == NULL || fd < 2) {
     goto ret;
   }
+
   lock_filesys_access();
   uint32_t read_bytes = file_length(file);
   unlock_filesys_access();
+
+  if (check_any_mapped(addr, addr + read_bytes)) {
+    goto ret;
+  }
+
   struct thread* t = thread_current();
-  //TODO check for overlapping with other pages (probably by inspecting spt)
   mapid = t->process->next_mapid++;
   uint32_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
   /* Make an spt entry for each page */
@@ -354,6 +360,7 @@ static void sys_mmap(struct intr_frame * f)
         mapid, file, curr_page, PGSIZE, true);
     supp_page_table_insert(&t->supp_page_table, addr + curr_page, MMAPPED);
   }
+
 ret:
   f->eax = mapid;
 }
@@ -421,16 +428,29 @@ static void check_safe_access(const void *ptr, unsigned size)
   for (const void const* base = ptr;
        ptr <= base + size;
        ptr = pg_round_down(ptr + PGSIZE)) {
-      //printf("Ptr before: %p\n");
       ptr = pg_round_down(ptr);
-      //printf("Ptr after: %p\n");
     if (!is_user_vaddr(ptr)
         || supp_page_table_get(&cur->supp_page_table, ptr) == NULL) {
-     //   printf("The unmapped address is %p\n", ptr);
-       // print_spt(&cur->supp_page_table);
       process_kill();
     }
   }
+}
+
+/* Checks whether there any pages in the range are mapped, reserved for
+   stack, or are kernel virtual addresses */
+static bool check_any_mapped(void *start, void *stop) {
+  ASSERT(start <= stop);
+  bool ret = false;
+  struct thread *cur = thread_current();
+  for (; start <= stop; start += PGSIZE) {
+    if (is_kernel_vaddr(start) ||
+        supp_page_table_get(&cur->supp_page_table, start) != NULL ||
+        start >= PHYS_BASE - STACK_MAX_SIZE) {
+      ret = true;
+      break;
+    }
+  }
+  return ret;
 }
 
 /* Checks the entirety of a string is in valid user memory.

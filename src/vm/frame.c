@@ -2,6 +2,7 @@
 #include "vm/page.h"
 #include "threads/vaddr.h"
 #include "vm/swap.h"
+#include "vm/mmap.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
@@ -84,7 +85,6 @@ void frame_free_page(void *kaddr)
     struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
 
     // Frees the page and removes its reference
-    // TODO FIXME !?
     pagedir_clear_page(del_frame->t->pagedir, del_frame->uaddr);
 
     palloc_free_page(del_frame->kaddr);
@@ -116,16 +116,36 @@ static struct frame * choose_victim(void)
   return victim;
 }
 
-/* Evict a frame from memory, (also frees it's frame table entry.) */
+/* Evict a frame from memory, taking appropriate action to write it out to the
+   backing store (either swap or a file). Also frees it's frame table entry. */
 static void frame_evict(struct frame *victim)
 {
-  /* swap the frame out to disk. */
-  swap_to_disk(&victim->t->swap_table, victim->uaddr, victim->kaddr);
+  struct supp_page *spte = supp_page_table_get(&victim->t->supp_page_table,
+      victim->uaddr);
+  switch (spte->status) {
+    case LOADED:
+      /* normal memory, swap out to disk */
+      swap_to_disk(&victim->t->swap_table, victim->uaddr, victim->kaddr);
+      spte->status = SWAPPED;
+      break;
+    case MMAPPED:
+      /* write the frame back to disk, if it has been modified */
+      if (pagedir_is_dirty(&victim->t->pagedir, victim->uaddr)) {
+        struct mmap_file_page *mmfp = mmap_file_page_table_get(
+            &victim->t->mmap_file_page_table, victim->uaddr);
+        file_seek(mmfp->file, mmfp->ofs);
+        file_write(mmfp->file, victim->kaddr, mmfp->size);
+      }
+      break;
+    case SWAPPED:
+    case ZEROED:
+    default:
+      /* These types of pages shouldn't be in a frame, panic the kernel */
+      PANIC("Bad type of page in memory!");
+      NOT_REACHED();
+  }
 
-  /* update the victim's spt */
-  supp_page_table_insert(&victim->t->supp_page_table, victim->uaddr, SWAPPED);
-
-  /* free the page and frame table entry */
+  /* remove and free the frame table entry */
   palloc_free_page(victim->kaddr);
   frame_access_lock();
   hash_delete(&hash_table, &victim->hash_elem);
