@@ -352,15 +352,15 @@ static void sys_mmap(struct intr_frame * f)
   file = file_reopen(file);
   uint32_t curr_page;
   for (curr_page = 0;
-       curr_page <= read_bytes % PGSIZE;
+       curr_page <= read_bytes;
        curr_page += PGSIZE)
   {
+    //TODO check writable status of file, make last page size reflect zero byes
     mmap_file_page_table_insert(&t->mmap_file_page_table, addr + curr_page,
         mapid, file, curr_page, PGSIZE, true);
     supp_page_table_insert(&t->supp_page_table, addr + curr_page, MMAPPED);
   }
   add_mapping(&t->mappings, mapid, addr, addr + curr_page);
-  // print_mmap_table(&t->mmap_file_page_table);
 ret:
   f->eax = mapid;
 }
@@ -456,17 +456,14 @@ static void check_safe_access(const void *ptr, unsigned size)
    stack, or are kernel virtual addresses */
 static bool check_any_mapped(void *start, void *stop) {
   ASSERT(start <= stop);
-  bool ret = false;
   struct thread *cur = thread_current();
   for (; start <= stop; start += PGSIZE) {
-    if (is_kernel_vaddr(start) ||
-        supp_page_table_get(&cur->supp_page_table, start) != NULL ||
+    if (supp_page_table_get(&cur->supp_page_table, start) != NULL ||
         start >= PHYS_BASE - STACK_MAX_SIZE) {
-      ret = true;
-      break;
+      return true;
     }
   }
-  return ret;
+  return false;
 }
 
 /* Checks the entirety of a string is in valid user memory.
