@@ -333,9 +333,6 @@ process_exit (void)
     }
   }
 
-  /* Unmap all memory mapped files */
-  hash_apply(&cur->mappings, unmap_elem);
-
   /* Close all of the currently open files and free their descriptors. */
   while (!list_empty(&thread_current()->descriptors)) {
     struct descriptor *d = list_entry(
@@ -355,7 +352,8 @@ process_exit (void)
   }
 
   #ifdef VM
-    //print_spt(&cur->supp_page_table);
+    /* Unmap all memory mapped files */
+    hash_apply(&cur->mappings, unmap_elem);
     supp_page_table_destroy(&cur->supp_page_table);
   #endif
 

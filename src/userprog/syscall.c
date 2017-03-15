@@ -381,12 +381,12 @@ void munmap(mapid_t mapping) {
     struct mmap_file_page* page
       = mmap_file_page_table_get(&t->mmap_file_page_table, curr);
     file = page->file;
-    mmap_file_page_table_delete_entry(&t->mmap_file_page_table, page);
     void* kaddr = pagedir_get_page(t->pagedir, curr);
     if (kaddr != NULL) {
       clear_frame(kaddr);
       pagedir_clear_page(t->pagedir, curr);
     }
+    mmap_file_page_table_delete_entry(&t->mmap_file_page_table, page);
     supp_page_table_remove(&t->supp_page_table, curr);
   }
   delete_mapping(&t->mappings, mapping);
