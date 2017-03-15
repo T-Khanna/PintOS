@@ -116,6 +116,20 @@ static struct frame * choose_victim(void)
   return victim;
 }
 
+/* clear the given frame of memory */
+bool clear_frame(void *kaddr) {
+  ASSERT(is_kernel_vaddr(kaddr));
+  struct frame target;
+  target.kaddr = kaddr;
+  struct hash_elem *elem = hash_find(&hash_table, &target.hash_elem);
+  if (elem == NULL) {
+    return false;
+  }
+  struct frame *found = hash_entry(elem, struct frame, hash_elem);
+  frame_evict(found);
+  return true;
+}
+
 /* Evict a frame from memory, taking appropriate action to write it out to the
    backing store (either swap or a file). Also frees it's frame table entry. */
 static void frame_evict(struct frame *victim)
