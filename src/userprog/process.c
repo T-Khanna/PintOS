@@ -706,6 +706,7 @@ setup_stack (void **esp)
   struct thread *t = thread_current();
 
   /* Reserve max stack size */
+  
   while (upage > (uint8_t *) PHYS_BASE - STACK_MAX_SIZE) {
 
       supp_page_table_insert(&t->supp_page_table, upage, ZEROED);
