@@ -706,18 +706,6 @@ setup_stack (void **esp)
 
   intr_set_level(old_level);
 
-  uint8_t *upage = (uint8_t *) PHYS_BASE - 2 * PGSIZE;
-
-
-  /* Reserve max stack size */
-  
-  while (upage > (uint8_t *) PHYS_BASE - STACK_MAX_SIZE) {
-
-      supp_page_table_insert(&t->supp_page_table, upage, ZEROED);
-      // Advance.
-      upage -= PGSIZE;
-    }
-
   return success;
 }
 

@@ -172,15 +172,18 @@ page_fault (struct intr_frame *f)
 
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
 
-  if (fault_addr <= PHYS_BASE && fault_addr >= PHYS_BASE - STACK_MAX_SIZE) {
-      if (fault_addr != f->esp - 4 && fault_addr != f->esp - 32) {
-          kill(f);
-      }
-  }
-
   /* If the page doesn't exist, kill the process. */
   if (sp == NULL) {
-    kill(f);
+    /* check whether it's a valid stack access */
+    if (vaddr >= (uint8_t *) PHYS_BASE - STACK_MAX_SIZE &&
+        (fault_addr >= f->esp || fault_addr == f->esp - 4
+          || fault_addr == f->esp - 32)) {
+      void *kaddr = frame_get_page(vaddr);
+      supp_page_table_insert(&t->supp_page_table, vaddr, LOADED);
+      install_page(vaddr, kaddr, true);
+    } else {
+      kill(f);
+    }
   } else {
     char status[10];
     status_string(sp->status, status);
