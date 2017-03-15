@@ -106,7 +106,6 @@ bool mmap_file_page_table_delete_entry(struct hash* table,
   if (pagedir_is_dirty(t->pagedir, vaddr)) {
     file_write(entry->file, vaddr, entry->size);
   }
-  pagedir_clear_page(t->pagedir, vaddr);
   struct hash_elem* found = hash_delete(table, &entry->hash_elem);
   if (found != NULL) {
     free(hash_entry(found, struct mmap_file_page, hash_elem));

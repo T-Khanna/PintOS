@@ -15,6 +15,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #ifdef VM
+#include "vm/frame.h"
 #include "vm/mmap.h"
 #include "vm/page.h"
 #endif
@@ -384,6 +385,12 @@ void munmap(mapid_t mapping) {
     struct mmap_file_page* page
       = mmap_file_page_table_get(&t->mmap_file_page_table, curr);
     mmap_file_page_table_delete_entry(&t->mmap_file_page_table, page);
+    void* kaddr = pagedir_get_page(t->pagedir, curr);
+    if (kaddr != NULL) {
+      clear_frame(kaddr);
+      pagedir_clear_page(t->pagedir, curr);
+    }
+    supp_page_table_remove(&t->supp_page_table, curr);
   }
   delete_mapping(&t->mappings, mapping);
   // printf("AFTER DELETION\n");
