@@ -205,7 +205,7 @@ page_fault (struct intr_frame *f)
       case SWAPPED:
         /* Lazy load page data from swap table. */
         swap_into_memory(&t->swap_table, vaddr, kaddr);
-
+        sp->status = LOADED;
         break;
       case MMAPPED:;
         /* load in this page from the file */

@@ -159,16 +159,19 @@ static void frame_evict(struct frame *victim)
     case ZEROED:
     default:
       /* These types of pages shouldn't be in a frame, panic the kernel */
+      printf("SPT STATUS: %d\n", spte->status);
       PANIC("Bad type of page in memory!");
       NOT_REACHED();
   }
 
   /* remove and free the frame table entry */
+  pagedir_clear_page(victim->t->pagedir, victim->uaddr);
   palloc_free_page(victim->kaddr);
   frame_access_lock();
   hash_delete(&hash_table, &victim->hash_elem);
   frame_access_unlock();
   free(victim);
+
 }
 
 unsigned frame_hash_func(const struct hash_elem *e_, void *aux UNUSED)

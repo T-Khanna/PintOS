@@ -71,7 +71,8 @@ void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED)
 {
   struct swap_table_entry *entry
       = hash_entry(elem, struct swap_table_entry, elem);
-  free(entry);
+  //TODO check if we can free here
+  //free(entry);
 }
 
 /* Allocate a swap slot and mark it as in use.
@@ -126,9 +127,9 @@ void print_swap_table(struct hash *swap_table) {
   hash_apply(swap_table, print_swap_table_elem);
 }
 
-void print_swap_table_elem(struct hash_elem *elem, void *aux UNUSED)
+void print_swap_table_elem(struct hash_elem *e, void *aux UNUSED)
 {
-  struct swap_table_entry *entry = hash_entry(elem, struct swap_table_entry, elem);
+  struct swap_table_entry *entry = hash_entry(e, struct swap_table_entry, elem);
   if (entry == NULL) {
     printf("SWAP TABLE ENTRY WITHOUT AN ENTRY!!!!\n");
     ASSERT(false);
@@ -173,9 +174,11 @@ void swap_to_disk(struct hash *table, void *vaddr, void *kaddr)
     printf("---SPT---\n");
     print_spt(&cur->supp_page_table);
 
-    printf("---SWAP TABLE---\n");
-    print_swap_table(&table);
+    printf("---SWAP TABLE AT %p---\n", table);
+    print_swap_table(table);
 
     ASSERT(false);
   }
+
+  //lock_release(&swap_lock);
 }
