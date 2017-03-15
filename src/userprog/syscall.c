@@ -451,7 +451,7 @@ static void check_safe_access(const void *ptr, unsigned size)
 
      if (ptr != NULL &&
              (ptr >= (const void *) PHYS_BASE - STACK_MAX_SIZE 
-              && ptr < PHYS_BASE)
+              && ptr < PHYS_BASE) &&
              (ptr >= *cur->esp || ptr == *cur->esp - 4
               || ptr == *cur->esp - 32)) {
          return;
