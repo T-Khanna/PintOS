@@ -58,6 +58,8 @@ void* frame_get_page(void *upage)
     ASSERT(is_user_vaddr(upage));
     void *kpage = palloc_get_page(PAL_USER | PAL_ZERO);
 
+    frame_access_lock();
+
     if (kpage == NULL) {
       /* make space and try again */
       frame_evict(choose_victim());
@@ -74,7 +76,6 @@ void* frame_get_page(void *upage)
     new_frame->kaddr = kpage;
     new_frame->uaddr = upage;
 
-    frame_access_lock();
 
     struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
     frame_access_unlock();
@@ -94,7 +95,10 @@ void frame_free_page(void *kaddr)
     struct frame f;
     f.kaddr = kaddr;
 
-    frame_access_lock();
+    bool have_frame_lock = lock_held_by_current_thread(&frame_lock);
+    if (!have_frame_lock) {
+      frame_access_lock();
+    }
 
     struct hash_elem *del_elem = hash_delete(&hash_table, &f.hash_elem);
     ASSERT(del_elem != NULL);
@@ -106,7 +110,9 @@ void frame_free_page(void *kaddr)
     palloc_free_page(del_frame->kaddr);
     free(del_frame);
 
-    frame_access_unlock();
+    if (!have_frame_lock) {
+      frame_access_unlock();
+    }
 }
 
 /* Choose a frame as a candidate for eviction. */
@@ -116,8 +122,6 @@ static struct frame * choose_victim(void)
 
   struct frame *victim = NULL;
 
-  frame_access_lock();
-
   struct hash_iterator iter;
   hash_first(&iter, &hash_table);
   while (hash_next(&iter)) {
@@ -125,7 +129,6 @@ static struct frame * choose_victim(void)
     victim = cur;
   }
 
-  frame_access_unlock();
   /* make sure we found a victim */
   ASSERT(victim != NULL);
   return victim;

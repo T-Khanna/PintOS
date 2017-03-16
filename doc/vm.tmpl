@@ -87,13 +87,28 @@ the page should be a newly allocated zeroed out page. We already have this, so
 we simply mark the page as loaded in the supplmentary page table.
 
 * MMAPPED
-the page should be loaded from a file. 
+the page should be loaded from a file. we look up the entry in the file page
+table, which gives us the file that this page is from, the offset of the start
+of the page into the file, and the size of the page (how many bytes belong to
+this page, starting from the offset). We seek the file to the offset and read
+size bytes into the frame we got from the allocator.
+
+* LOADED
+we should never page fault on these types of pages, so we panic the kernel.
 
 >> A3: (5 marks)
 >> How does your code coordinate accessed and dirty bits between
 >> kernel and user virtual addresses that alias a single frame?
 >> Your answer should include a discussion of how you have implemented
 >> sharing of read only pages.
+
+We have not implemented sharing of pages between processes. As such, the only
+page directory entries that we care about the accessed and dirty bits for are
+memory mapped files (to determine whether we need to write a page back to the
+file when it gets evicted). In system calls, we always acces user memory using
+the user virtual addresses, and as such the accessed and dirty bits for the
+in the page directory of the process that owns a page are canonical, and these
+are the bits we look at when we evict a memory mapped page from memory.
 
 ---- SYNCHRONIZATION ----
 
