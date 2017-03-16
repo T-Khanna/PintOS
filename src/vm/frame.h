@@ -19,5 +19,6 @@ void frame_init (void);
 void* frame_get_page(void *uaddr);
 void frame_free_page(void *kaddr);
 bool clear_frame(void *kaddr);
+void print_frame_table(void);
 
 #endif /* vm/frame.h */

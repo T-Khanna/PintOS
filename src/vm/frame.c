@@ -19,8 +19,10 @@ static void frame_access_lock(void);
 static void frame_access_unlock(void);
 static struct frame * choose_victim(void);
 static void frame_evict(struct frame *victim);
+
 struct hash hash_table;
 struct lock frame_lock;
+static struct hash_iterator clock_pos;
 
 void frame_init (void)
 {
@@ -36,6 +38,18 @@ void frame_access_lock()
 void frame_access_unlock()
 {
     lock_release(&frame_lock);
+}
+
+static void print_frame(struct hash_elem* hash_elem, void* aux UNUSED);
+
+void print_frame_table(void) {
+  hash_apply(&hash_table, print_frame);
+}
+
+static void print_frame(struct hash_elem* elem, void* aux UNUSED) {
+  struct frame* found = hash_entry(elem, struct frame, hash_elem);
+  printf("FOR THREAD %s WITH TID %d, KERNEL VIRTUAL ADDRESS IS: %p, USER ADDRESS IS %p\n",
+      found->t->name, found->t->tid, found->kaddr, found->uaddr);
 }
 
 /* Get a frame of memory for the current thread */
@@ -102,7 +116,6 @@ static struct frame * choose_victim(void)
 
   struct frame *victim = NULL;
 
-  //TODO make this generally not awful, currently returns first frame in table
   frame_access_lock();
 
   struct hash_iterator iter;
