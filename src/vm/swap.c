@@ -76,12 +76,8 @@ void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED)
    Returns BITMAP_ERROR if there is no available swap */
 static swap_index_t allocate_slot(void)
 {
-  /* Scan the entire bitmap for an unmarked slot */
-  size_t index = bitmap_scan(slot_usage, 0, 1, false);
-  if (index != BITMAP_ERROR) {
-    bitmap_mark(slot_usage, index);
-  }
-  return index;
+  /* Scan the entire bitmap for an unmarked slot and mark it. */
+  return bitmap_scan_and_flip(slot_usage, 0, 1, false);
 }
 
 /* Moves the swap block for vaddr in the swap table into a frame given by kaddr.
@@ -163,6 +159,7 @@ void swap_to_disk(struct hash *table, void *vaddr, void *kaddr)
   ASSERT(entry != NULL);
   entry->vaddr = vaddr;
   entry->index = slot_index;
+  // printf("THREAD TID IS %d\n", thread_current()->tid);
   /* If hash_insert returned non-null, there was already an entry in the swap
      table for that page. */
   if (hash_insert(table, &entry->elem) != NULL) {

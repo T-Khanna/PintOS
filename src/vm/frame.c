@@ -165,13 +165,7 @@ static void frame_evict(struct frame *victim)
   }
 
   /* remove and free the frame table entry */
-  pagedir_clear_page(victim->t->pagedir, victim->uaddr);
-  palloc_free_page(victim->kaddr);
-  frame_access_lock();
-  hash_delete(&hash_table, &victim->hash_elem);
-  frame_access_unlock();
-  free(victim);
-
+  frame_free_page(victim->kaddr);
 }
 
 unsigned frame_hash_func(const struct hash_elem *e_, void *aux UNUSED)
