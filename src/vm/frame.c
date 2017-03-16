@@ -141,8 +141,8 @@ static void frame_evict(struct frame *victim)
   switch (spte->status) {
     case LOADED:
       /* normal memory, swap out to disk */
-      swap_to_disk(&victim->t->swap_table, victim->uaddr, victim->kaddr);
       spte->status = SWAPPED;
+      swap_to_disk(&victim->t->swap_table, victim->uaddr, victim->kaddr);
       break;
     case MMAPPED:
       /* write the frame back to disk, if it has been modified */
