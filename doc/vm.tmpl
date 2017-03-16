@@ -220,6 +220,29 @@ has information about where to look to find the data that belongs in a page.
 >> enumeration that relates to your file mapping table.
 >> Identify the purpose of each in 25 words or less.
 
+TODO Maybe add here the function pointer array as well?
+
+typedef int mapid_t;          /* Map id as integer */
+
+struct mmap_file_page {
+  mapid_t mapid;              /* The mapid for this mapping belongs to */
+  void* vaddr;                /* Reference to the page for this entry */
+  struct file* file;          /* Reference to the file for the page */
+  off_t ofs;                  /* The offset of the start of the page into the
+                                 file */
+  uint32_t size;              /* The number of bytes into the page that belong
+                                 to the file. */
+  bool writable;              /* Check if page is writable or not */
+  struct hash_elem hash_elem; /* Bookkeeping */
+};
+
+struct mapid_to_addr {
+  mapid_t mapid;              /* Id of the mapping referred to */
+  void* start_addr;           /* Starting user address from the mapping */
+  void* end_addr;             /* Number of bytes of the mmapped file */
+  struct hash_elem hash_elem; /* Bookkeeping */
+};
+
 ---- ALGORITHMS ----
 
 >> C2: (5 marks)
