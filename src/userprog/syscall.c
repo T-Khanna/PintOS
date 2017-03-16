@@ -222,6 +222,12 @@ static void sys_read(struct intr_frame * f)
     bytes_read = size;
 
   } else {
+    for (uintptr_t cur_page = buffer;
+         cur_page < (uintptr_t) buffer + size;
+         cur_page += PGSIZE)
+    {
+
+    }
     /* Otherwise we're reading from a file instead. */
     lock_filesys_access();
     struct file *file = find_file(fd);
