@@ -180,6 +180,18 @@ has information about where to look to find the data that belongs in a page.
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
 
+We consider a valid stack address if it points to a location lower
+than PHYS_BASE, and it is either above the stack pointer, or 4 or 32
+bytes below it, because of the PUSH and PUSHA instructions. 
+
+Since the page fault could be caused by a system call, the syscall
+handler saves a pointer to the stack pointer inside the thread 
+structure. If eip points to an address above PHYS_BASE, and it is 
+therefore a page fault cause by a system call, we access the stack
+pointer saved in the thread structure, otherwise we access the
+interrupt frame passed to the page fault handler.
+
+
 ---- SYNCHRONIZATION ----
 
 >> B5: (5 marks)
