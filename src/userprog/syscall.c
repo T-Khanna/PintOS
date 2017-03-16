@@ -367,6 +367,7 @@ static void sys_mmap(struct intr_frame * f)
   add_mapping(&t->mappings, mapid, addr, addr + curr_page);
 ret:
   f->eax = mapid;
+  printf("WE GET HERE\n");
 }
 
 static void sys_munmap(struct intr_frame * f)
