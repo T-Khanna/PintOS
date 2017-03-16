@@ -159,7 +159,6 @@ void swap_to_disk(struct hash *table, void *vaddr, void *kaddr)
   ASSERT(entry != NULL);
   entry->vaddr = vaddr;
   entry->index = slot_index;
-  // printf("THREAD TID IS %d\n", thread_current()->tid);
   /* If hash_insert returned non-null, there was already an entry in the swap
      table for that page. */
   if (hash_insert(table, &entry->elem) != NULL) {
