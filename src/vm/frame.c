@@ -141,8 +141,10 @@ static void frame_evict(struct frame *victim)
   switch (spte->status) {
     case LOADED:
       /* normal memory, swap out to disk */
+      lock_acquire(&victim->t->spt_lock);
       spte->status = SWAPPED;
       swap_to_disk(&victim->t->swap_table, victim->uaddr, victim->kaddr);
+      lock_release(&victim->t->spt_lock);
       break;
     case MMAPPED:
       /* write the frame back to disk, if it has been modified */
@@ -160,6 +162,7 @@ static void frame_evict(struct frame *victim)
     default:
       /* These types of pages shouldn't be in a frame, panic the kernel */
       printf("SPT STATUS: %d\n", spte->status);
+      print_spt(&victim->t->supp_page_table);
       PANIC("Bad type of page in memory!");
       NOT_REACHED();
   }
