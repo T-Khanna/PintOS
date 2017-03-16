@@ -117,11 +117,41 @@ are the bits we look at when we evict a memory mapped page from memory.
 >> how are races avoided? You should consider both when there are
 >> and are not free frames available in memory.
 
+We have a lock in our frame table that ensures mutual exclusion for critical
+operations on the frame table, including getting a new frame of memory.
+
+In our frame allocator, we request a user pool page from palloc, and then
+get the frame table lock.
+
+If there was free memory, we just make an entry for the frame table and insert
+it to the frame table (which must be synchronized).
+
+If there was not free memory, we evict a frame from memory. This may involve
+writing a frame to swap or a file, and then removing the entry from the frame
+table, so mutual exclusion for this process ensures that we do not have any
+races in any of these operations. Frame eviction then calls palloc_free_page().
+After evicting a frame, we request a page from palloc again, which will now
+succeed.
+
 ---- RATIONALE ----
 
 >> A5: (5 marks)
 >> Why did you choose the data structure(s) that you did for
 >> representing virtual-to-physical mappings?
+
+We continue to let the page directory contain the mapping from virtual to
+phyiscal addresses, because we must maintain this table for user programs to
+access memory. We introduced the supplementary page table, based around a hash
+table, to manage extra information about where pages are located.
+
+Hash tables allow for constant time lookup, which is good because the
+supplementary page table will have one entry per page reserved for the process
+to use.
+
+We also split information about file mappings and swapped pages into separate
+tables so that we can keep the entry size of each small, because these tables
+will all have a large number of entries. The supplementary page table simply
+has information about where to look to find the data that belongs in a page.
 
                PAGING TO AND FROM DISK
                =======================
