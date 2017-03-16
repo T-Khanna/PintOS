@@ -450,7 +450,7 @@ static void check_safe_access(const void *ptr, unsigned size)
     //TODO FIXME MAKE THIS NICER, TOO MUCH REPETITION
 
      if (ptr != NULL &&
-             (ptr >= (const void *) PHYS_BASE - STACK_MAX_SIZE 
+             (ptr >= (const void *) PHYS_BASE - STACK_MAX_SIZE
               && ptr < PHYS_BASE) &&
              (ptr >= *cur->esp || ptr == *cur->esp - 4
               || ptr == *cur->esp - 32)) {

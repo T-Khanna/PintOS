@@ -352,8 +352,10 @@ process_exit (void)
   }
 
   #ifdef VM
-    /* Unmap all memory mapped files */
+    /* Unmap all memory mapped files, Also, deletes all entries in
+       mmap_file_page_table. */
     hash_apply(&cur->mappings, unmap_elem);
+    mmap_file_page_table_destroy(&cur->mmap_file_page_table);
     supp_page_table_destroy(&cur->supp_page_table);
   #endif
 

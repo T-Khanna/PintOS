@@ -152,7 +152,5 @@ bool supp_pte_less_func(const struct hash_elem *a, const struct hash_elem *b,
 /* Free the memory used by an entry in the supplementary page table */
 void delete_supp_pte(struct hash_elem *elem, void *aux UNUSED)
 {
-  struct supp_page *entry
-      = hash_entry(elem, struct supp_page, hash_elem);
-  free(entry);
+  free(hash_entry(elem, struct supp_page, hash_elem));
 }

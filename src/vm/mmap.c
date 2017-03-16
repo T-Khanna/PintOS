@@ -5,6 +5,7 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "vm/mmap.h"
+#include <stdio.h>
 
 /* Prototypes */
 
@@ -101,11 +102,9 @@ bool mmap_file_page_table_insert(struct hash* table, void* vaddr, mapid_t mapid,
 bool mmap_file_page_table_delete_entry(struct hash* table,
     struct mmap_file_page* entry) {
   ASSERT(entry != NULL);
-  void* vaddr = entry->vaddr;
-  struct thread* t = thread_current();
   struct hash_elem* found = hash_delete(table, &entry->hash_elem);
   if (found != NULL) {
-    free(hash_entry(found, struct mmap_file_page, hash_elem));
+    delete_mfpt(found, NULL);
   }
   return found != NULL;
 }
@@ -113,17 +112,12 @@ bool mmap_file_page_table_delete_entry(struct hash* table,
 void mmap_file_page_table_destroy(struct hash *table)
 {
   ASSERT(table != NULL);
-  hash_destroy(table, &delete_mfpt);
+  hash_destroy(table, NULL/*&delete_mfpt*/);
 }
 
 static void delete_mfpt(struct hash_elem *elem, void *aux UNUSED)
 {
-  struct mmap_file_page *p = hash_entry(elem, struct mmap_file_page, hash_elem);
-  struct thread* t = thread_current();
-  if (pagedir_is_dirty(t->pagedir, p->vaddr)) {
-    file_write(p->file, p->vaddr, p->size);
-  }
-  free(p);
+  free(hash_entry(elem, struct mmap_file_page, hash_elem));
 }
 
 static unsigned mfpt_hash_func(const struct hash_elem *elem, void *aux UNUSED)
