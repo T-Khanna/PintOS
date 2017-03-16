@@ -132,7 +132,6 @@ struct thread
 
 #ifdef VM
     struct hash supp_page_table;        /* Supplementary page table */
-    struct lock spt_lock;               /* Supplementary page table lock */
     struct hash mappings;               /* Mapping link between mapid and user
                                            virtual addresses */
     struct hash mmap_file_page_table;   /* Memory mapped files */

@@ -19,12 +19,6 @@ struct mmap_file_page {
   struct hash_elem hash_elem; /* Bookkeeping */
 };
 
-// struct file_page {
-//   void* kaddr;
-//   struct file* file;
-//   struct hash_elem hash_elem;
-// };
-
 struct mapid_to_addr {
   mapid_t mapid;              /* Id of the mapping referred to */
   void* start_addr;          /* Starting user address from the mapping */

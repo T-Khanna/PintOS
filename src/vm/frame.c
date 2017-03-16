@@ -136,7 +136,6 @@ bool clear_frame(void *kaddr) {
    backing store (either swap or a file). Also frees it's frame table entry. */
 static void frame_evict(struct frame *victim)
 {
-  lock_acquire(&victim->t->spt_lock);
   struct supp_page *spte = supp_page_table_get(&victim->t->supp_page_table,
       victim->uaddr);
   switch (spte->status) {
@@ -165,8 +164,6 @@ static void frame_evict(struct frame *victim)
       PANIC("Bad type of page in memory!");
       NOT_REACHED();
   }
-
-  lock_release(&victim->t->spt_lock);
 
   /* remove and free the frame table entry */
   frame_free_page(victim->kaddr);

@@ -170,9 +170,7 @@ page_fault (struct intr_frame *f)
   /* Rounds the fault address such that it starts from page boundary. */
   void* vaddr = pg_round_down(fault_addr);
 
-  lock_acquire(&t->spt_lock);
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
-  lock_release(&t->spt_lock);
 
   /* If the page fault happened because of a syscall, use the saved esp */
   void *esp = (f->eip > 0xc0000000 ? *t->esp : f->esp);
@@ -188,10 +186,8 @@ page_fault (struct intr_frame *f)
           || fault_addr == esp - 32)) {
         //printf("HERE!?\n");
       void *kaddr = frame_get_page(vaddr);
-      lock_acquire(&t->spt_lock);
       supp_page_table_insert(&t->supp_page_table, vaddr, LOADED);
       install_page(vaddr, kaddr, true);
-      lock_release(&t->spt_lock);
     } else {
         //printf("HEYYYY IM HERE\n");
       kill(f);
@@ -208,10 +204,8 @@ page_fault (struct intr_frame *f)
         break;
       case SWAPPED:
         /* Lazy load page data from swap table. */
-        lock_acquire(&t->spt_lock);
         swap_into_memory(&t->swap_table, vaddr, kaddr);
         sp->status = LOADED;
-        lock_release(&t->spt_lock);
         break;
       case MMAPPED:;
         /* load in this page from the file */

@@ -33,11 +33,61 @@ Thomas Bower tb1215@ic.ac.uk
 >> enumeration that relates to your supplemental page table.
 >> Identify the purpose of each in 25 words or less.
 
+in thread.h, added member to struct thread:
+
+  struct hash supp_page_table;
+  /* The supplementary page table for this thread, entries take form of
+     struct supp_page */
+
+in page.h, created struct supp_page to represent each entry of the supplementary
+page table:
+
+  struct supp_page {
+    void *vaddr;                /* The virtual address of this page */
+    enum page_status_t status;  /* The status of this page */
+    struct hash_elem hash_elem; /* Bookkeeping */
+  };
+
+in page.h, created enum page_status_t to represent to status of each page in the
+supplementary page table:
+
+  /* The status of a page */
+  enum page_status_t {
+    LOADED,     /* Loaded in memory */
+    MMAPPED,    /* Memory mapped and stored in the mmap table */
+    SWAPPED,    /* Swapped out to disk */
+    ZEROED,     /* Zeroed out page */
+  };
+
 ---- ALGORITHMS ----
 
 >> A2: (5 marks)
 >> Describe your code for locating the frame, if any, that contains
 >> the data of a given page.
+
+The page directory keeps track of the mapping from pages to frames for pages
+that are loaded in memory, and the CPU translates these on-the-fly. For pages
+that are not loaded into memory, a page fault is produced when user programs
+access these pages.
+
+When a user process page faults, we first get a frame from our frame allocator.
+
+We then retrieve the status of the page from the supplementary page table.
+There are four possible statuses of a page:
+
+* SWAPPED
+the page has been evicted from memory, and lives on disk. We must now load it
+back into memory. We do this by consulting the thread's swap table to find the
+index of the swap slot that this page lives in, and loading this in from the
+swap block device.
+We then mark this page as LOADED in the supplementary page table
+
+* ZEROED
+the page should be a newly allocated zeroed out page. We already have this, so
+we simply mark the page as loaded in the supplmentary page table.
+
+* MMAPPED
+the page should be loaded from a file. 
 
 >> A3: (5 marks)
 >> How does your code coordinate accessed and dirty bits between
