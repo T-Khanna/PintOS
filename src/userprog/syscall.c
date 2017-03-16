@@ -226,7 +226,8 @@ static void sys_read(struct intr_frame * f)
          cur_page < (uintptr_t) buffer + size;
          cur_page += PGSIZE)
     {
-
+      char dontcare = *(char *) cur_page;
+      barrier();
     }
     /* Otherwise we're reading from a file instead. */
     lock_filesys_access();
