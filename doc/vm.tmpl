@@ -221,6 +221,13 @@ within the swap table:
                                hash table. */
   };
 
+In swap.c, added the following to keep track of the swap block device:
+
+  static struct block *swap_dev;     /* The swap device */
+  static const int sectors_per_page = PGSIZE / BLOCK_SECTOR_SIZE;
+  static size_t num_slots;           /* Total number of swap slots */
+  static struct bitmap *slot_usage;  /* Bitmap to represent usage of slots */
+
 ---- ALGORITHMS ----
 
 >> B2: (5 marks)
@@ -290,8 +297,36 @@ access the interrupt frame passed to the page fault handler.
 We put in place locks for the frame table and swap system, as well still having
 the filesystem lock from task 2.
 
-A process obtains the frame table lock when it is getting a frame (which may
-involve evicing another frame), or when it is freeing a page.
+A process holds the frame table lock while it is getting a frame (which may
+involve evicing another frame), or while it is freeing a frame.
+
+The swap lock is held while a thread is swapping a page out to disk, or reading
+a page from disk back into memory.
+
+The filesystem lock is held while reading, writing, or seeking any file,
+including pages from memory mapped files.
+
+The above measures ensure that vital data structures such as the swap slot usage
+bitmap and the frame hash table are not concurrently modified, leading to
+corruption, or that two processes do not concurrently access the disk, which is
+not supported in pintos.
+
+We prevent deadlocks by breaking the circular wait condition necessary for a
+deadlock. Particularly, a thread which is holding the frame table lock may
+need to acquire the swap lock or filesystem lock, but we ensure that a thread
+which is holding the filesystem lock or swap lock never needs to acquire the
+frame lock.
+
+We achieve this by modifying the frame table entry only after we have evicted
+a frame, and have released the swap/filesystem lock. We also need to ensure that
+pagefaults never occur during filesystem operations, as this would require the
+frame table lock.
+
+When we are accessing the filesystem, such as in the read or write system call,
+we pre-load the pages we will need to access during the operation, and pin them,
+so that they do not get evicted. Similarly, we pin a page that we are in the
+process of swapping to disk. This ensures that we never need to acquire the
+frame lock while holding either the filesystem lock or swap lock.
 
 >> B6: (5 marks)
 >> A page fault in process P can cause another process Q's frame
