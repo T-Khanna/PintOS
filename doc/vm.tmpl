@@ -173,7 +173,6 @@ table:
     void *uaddr;                /* The address in user memory. */
     void *kaddr;                /* Reference to page address in kernel vm.
                                    Also the key used for the hash table. */
-    bool clock_bit;             /* Used in clock page replacement algorithm */
     struct hash_elem hash_elem; /* Hash table element for placement in to
                                    a hash table. */
   };
@@ -200,6 +199,8 @@ within the swap table:
 >> B2: (5 marks)
 >> When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
+
+
 
 >> B3: (5 marks)
 >> When a process P obtains a frame that was previously used by a
