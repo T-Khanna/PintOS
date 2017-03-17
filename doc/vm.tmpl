@@ -87,25 +87,25 @@ allocator, and load in the correct data for that page, as outlined below.
 There are four possible statuses of a page:
 
 * SWAPPED
-  the page has been evicted from memory, and lives on disk. We must now load it
+  The page has been evicted from memory, and lives on disk. We must now load it
   back into memory. We do this by consulting the thread's swap table to find the
   index of the swap slot that this page lives in, and loading this in from the
   swap block device.
   We then mark this page as LOADED in the supplementary page table
 
 * ZEROED
-  the page should be a newly allocated zeroed out page. We already have this, so
+  The page should be a newly allocated zeroed out page. We already have this, so
   we simply mark the page as loaded in the supplmentary page table.
 
 * MMAPPED
-  the page should be loaded from a file. we look up the entry in the file page
+  The page should be loaded from a file. we look up the entry in the file page
   table, which gives us the file that this page is from, the offset of the start
   of the page into the file, and the size of the page (how many bytes belong to
   this page, starting from the offset). We seek the file to the offset and read
   size bytes into the frame we got from the allocator.
 
 * LOADED
-  we should never page fault on these types of pages, so we panic the kernel.
+  We should never page fault on these types of pages, so we panic the kernel.
 
 >> A3: (5 marks)
 >> How does your code coordinate accessed and dirty bits between
@@ -347,7 +347,16 @@ finished evicting the frame, so there is no race between the two.
 >> during system calls. How do you gracefully handle attempted
 >> accesses to invalid virtual addresses?
 
+The only system calls that access user pages are the read and write system
+calls, which read from or write to a user provided buffer.
 
+We load in and pin all pages that we will need to access during system calls,
+before performing any other operation on the pages. This means that these frames
+should not be evicted, and we should not page fault during disk activity.
+
+We check that all pages in the buffer are valid virtual addresses before we
+start the process of loading and pinning the pages, and if we encounter an
+invalid address in the buffer, we kill the user process.
 
 ---- RATIONALE ----
 
@@ -359,7 +368,18 @@ finished evicting the frame, so there is no race between the two.
 >> where your design falls along this continuum and why you chose to
 >> design it this way.
 
+Although we could have used one all encompassing lock for the VM system such as
+vm_lock, we decided not to that that because of the issues it would cause for
+parallelism.
 
+On the other hand, we did not want to create locks for every individual
+aspect of the VM system since this would add unnecessary complexity and
+potentially add overhead that we don't need and can avoid (because we'd have to
+handle the locking and unlocking of many mechanisms).
+
+With these two points in mind, we settled on the middle ground and implemented
+two locks - a lock for frames and a lock for the file system. This allows for 
+higher parallelism but also reduces the amount of deadlocks we might encounter.
 
              MEMORY MAPPED FILES
              ===================
