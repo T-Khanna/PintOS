@@ -164,6 +164,37 @@ has information about where to look to find the data that belongs in a page.
 >> enumeration that relates to your frame table and swap table.
 >> Identify the purpose of each in 25 words or less.
 
+in frame.h, added struct frame to represent individual frames in the frame
+table:
+
+  struct frame {
+    struct thread *t;           /* Reference to the process the frame entry 
+                                   belongs to */
+    void *uaddr;                /* The address in user memory. */
+    void *kaddr;                /* Reference to page address in kernel vm.
+                                   Also the key used for the hash table. */
+    bool clock_bit;             /* Used in clock page replacement algorithm */
+    struct hash_elem hash_elem; /* Hash table element for placement in to
+                                   a hash table. */
+  };
+
+in swap.h, added the following type definition:
+
+  typedef size_t swap_index_t; /* ease reading with swap table entries by
+                                  choosing a more sensible name for the
+                                  swap index */
+
+in swap.h, added struct swap_table_entry to represent an individual entry
+within the swap table:
+
+  struct swap_table_entry {
+    void *vaddr;            /* Holds a point to the start of the page that
+                               this swap block holds */
+    swap_index_t index;     /* The index of the swap block */
+    struct hash_elem elem;  /* Hash table element for placement in to a
+                               hash table. */
+  };
+
 ---- ALGORITHMS ----
 
 >> B2: (5 marks)
