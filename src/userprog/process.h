@@ -4,6 +4,7 @@
 #include "threads/synch.h"
 #include <list.h>
 #include "filesys/descriptor.h"
+#include "vm/mmap.h"
 
 #define RET_ERROR -1
 #define MAX_CMD 3072
@@ -19,7 +20,7 @@ struct process
     int return_status;                  /* Return status of the process. */
     int next_fd;                        /* Used to allocate the id for the next
                                            file descriptor. */
-    int next_mapid;                     /* Used to allocate the id for the next
+    mapid_t next_mapid;                 /* Used to allocate the id for the next
                                            memory mapping. */
     bool load_success;                  /* Checks if loading an executable was
                                            a success. */

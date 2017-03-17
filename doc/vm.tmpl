@@ -168,7 +168,7 @@ in frame.h, added struct frame to represent individual frames in the frame
 table:
 
   struct frame {
-    struct thread *t;           /* Reference to the process the frame entry 
+    struct thread *t;           /* Reference to the process the frame entry
                                    belongs to */
     void *uaddr;                /* The address in user memory. */
     void *kaddr;                /* Reference to page address in kernel vm.
@@ -213,11 +213,11 @@ within the swap table:
 
 We consider a valid stack address if it points to a location lower
 than PHYS_BASE, and it is either above the stack pointer, or 4 or 32
-bytes below it, because of the PUSH and PUSHA instructions. 
+bytes below it, because of the PUSH and PUSHA instructions.
 
 Since the page fault could be caused by a system call, the syscall
-handler saves a pointer to the stack pointer inside the thread 
-structure. If eip points to an address above PHYS_BASE, and it is 
+handler saves a pointer to the stack pointer inside the thread
+structure. If eip points to an address above PHYS_BASE, and it is
 therefore a page fault cause by a system call, we access the stack
 pointer saved in the thread structure, otherwise we access the
 interrupt frame passed to the page fault handler.
@@ -263,28 +263,59 @@ interrupt frame passed to the page fault handler.
 >> enumeration that relates to your file mapping table.
 >> Identify the purpose of each in 25 words or less.
 
-TODO Maybe add here the function pointer array as well?
+We have updated the function pointer array from Task 2 to include the mmap
+and munmap system calls:
 
-typedef int mapid_t;          /* Map id as integer */
+  static void (*system_calls[]) (struct intr_frame *) = {
+    &sys_halt, &sys_exit, &sys_exec, &sys_wait, &sys_create, &sys_remove,
+    &sys_open, &sys_filesize, &sys_read, &sys_write, &sys_seek, &sys_tell,
+    &sys_close, &sys_mmap, &sys_munmap
+  };
 
-struct mmap_file_page {
-  mapid_t mapid;              /* The mapid for this mapping belongs to */
-  void* vaddr;                /* Reference to the page for this entry */
-  struct file* file;          /* Reference to the file for the page */
-  off_t ofs;                  /* The offset of the start of the page into the
-                                 file */
-  uint32_t size;              /* The number of bytes into the page that belong
-                                 to the file. */
-  bool writable;              /* Check if page is writable or not */
-  struct hash_elem hash_elem; /* Bookkeeping */
-};
+We have added the mapid_t type definition to identify each of the memory
+mapped files stored in our memory map file table:
 
-struct mapid_to_addr {
-  mapid_t mapid;              /* Id of the mapping referred to */
-  void* start_addr;           /* Starting user address from the mapping */
-  void* end_addr;             /* Number of bytes of the mmapped file */
-  struct hash_elem hash_elem; /* Bookkeeping */
-};
+  typedef int mapid_t;          /* Used to track memory mapped files */
+
+To set this mapid for each new memory mapped file, we have added a new member
+in struct process:
+
+  mapid_t next_mapid;           /* Used to allocate the id for the next
+                                   memory mapping. */
+
+We have added a data structure to store each user page created for the memory
+mapped file. This is used as the entry for our mmap_file_page_table:
+
+  struct mmap_file_page {
+    mapid_t mapid;              /* The mapping this file page belongs to */
+    void* uaddr;                /* Reference to the page for this entry */
+    struct file* file;          /* Reference to the file for the page */
+    off_t ofs;                  /* The offset of the start of the page into the
+                                   file */
+    uint32_t size;              /* The number of bytes into the page that belong
+                                   to the file. */
+    bool writable;              /* Check if page is writable or not */
+    struct hash_elem hash_elem; /* Used to hash the struct mmap_file_page */
+  };
+
+The data structure below is used to find the range of user addresses the mapid
+refers to. This is neccessary as our memory mapped file table is hashed by the
+user address:
+
+  struct mapid_to_addr {
+    mapid_t mapid;              /* Id of the mapping referred to */
+    void* start_addr;           /* Starting user address from the mapping */
+    void* end_addr;             /* Ending user address from the mapping */
+    struct hash_elem hash_elem; /* Used by the struct hash mapping */
+  };
+
+We have added the hash structures for the memory map file page table, which is
+hashed by user address, and the mappings from mapid to the user addresses, which
+is needed to obtain the file pages for the mapid provided:
+
+  struct hash mmap_file_page_table;   /* Memory mapped files */
+  struct hash mappings;               /* Mapping link between mapid and user
+                                         virtual addresses */
 
 ---- ALGORITHMS ----
 
@@ -296,6 +327,16 @@ struct mapid_to_addr {
 >> C3: (5 marks)
 >> Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
+
+To check if a new file mapping overlaps any existing segment, we call the
+check_any_mapped function, which takes in the starting user address and the
+ending user address. We iterate over all the pages in this range and check if
+we have a supplementary page table entry for any of the pages. If this is the
+case, that means that we are overlapping with another user page that has yet to
+be lazy loaded. We return true in this case, to signal that we are overlapping
+an existing segment. If we don't have a supplementary page table entry for any
+of the pages, we return false to signal that there is no overlap and that the
+start user address is valid for this mmap system call.
 
 ---- RATIONALE ----
 
