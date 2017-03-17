@@ -365,7 +365,29 @@ is needed to obtain the file pages for the mapid provided:
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+Memory mapped files store the pages through the mmap system call, where we
+allocate a new mapid for the memory mapped file. We set the status of the
+supplementary entry to  After this, we store the supp_page and mmap_file_page
+into the supp_page_table and mmap_file_page_table . We also store the mapid,
+the user address passed into the mmap system call and the last user address we
+stored into the mapid_page_table. This is needed to obtain the user address
+when we call the munmap system call.
 
+No pages are loaded during the mmap system call, we lazy load the pages through
+the page fault handler. When we get a page fault for the memory mapped file, we
+enter the MMAPPED case when checking the supplementary page entry, at which
+point we lazy load the file present in the mmap_file_page structure for that
+user address. This is different from the other valid page statuses, which are
+ZEROED and SWAPPED. If the page is a swapped page, we simply swap the page back
+into memory. If the page is zeroed, we don't have anything to do as the frame
+allocator creates a zeroed page by default.
+
+During the eviction process, if we have to evict a memory mapped file, we check
+the dirty bits of the page, to see if the page has been written to. If this is
+the case, we write the changes back to the file before continuing with the
+eviction process. This is different from the other possible valid page, which
+is when the status is LOADED. In this case, the page is loaded into memory and
+we swap the frame to the swap disk section.
 
 >> C3: (5 marks)
 >> Explain how you determine whether a new file mapping overlaps
@@ -398,19 +420,13 @@ supplementary page table entry to MMAPPED before storing it in the
 supp_page_table. We do not set the mapid value however, as this is not a memory
 mapped file.
 
-Memory mapped files store the pages through the mmap system call, where we also
-allocate a new mapid for the mmapped file. After this, we store the pages in
-the supp_page_table and mmap_file_page_table as before. We also store the mapid,
-the user address passed into the mmap system call and the last user address we
-stored into the mapid_page_table. This is needed to obtain the user address
-when we call the munmap system call.
-
 We treat the executable exactly the same way we treat a memory mapped
 file when we lazy load the pages. When we page fault, we enter the MMAPPED case
 when we check the supplementary page entry. At this point, we obtain the
 mmap_file_page and read the file at the offset stored into the user page. This
-avoids potentially duplicating the code for mmapped files and executables and
-avoids duplicating the components of the mmap_file_page_table data structure.
+avoids potentially duplicating the code for memory mapped files and executables
+and avoids duplicating the components of the mmap_file_page_table data
+structure.
 
 As such, we do not share the code when we store the file, as the information we
 need differs. We do share the code when we lazy load the page, as the behaviour
