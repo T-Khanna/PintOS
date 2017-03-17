@@ -229,12 +229,36 @@ within the swap table:
 
 We implement the strategy of choosing a random frame to evict.
 
-We do this by choosing the first elemnt of the hash table, which is sorted
+We do this by choosing the first elemnt of the hash table, which is sorted by
+the hash of the kernel virtual address of the frame. This has the same
+probability of choosing any user page from any process.
+
+Choosing a random frame to evict usually fares better than FIFO, and was used
+by the Intel i860 processor. This frame eviction algorithm allows us to choose
+a frame to evict very quickly, and vastly simplifies the implementation.
 
 >> B3: (5 marks)
 >> When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data
 >> structures) to reflect the frame Q no longer has?
+
+Process P obtains a frame by calling frame_get_page. If there is no free frames
+available, it will evict a frame from memory by calling frame_evict on whatever
+frame it has chosen as the victim, in this case Q's frame.
+
+In frame_evict(), we look up the status of the page in Q's supplementary page
+table. We then take the necessary action to store this page to the appropriate
+backing store, either swap if it's a normal (stack) frame, or a file if the
+frame was memory mapped and the page is marked as dirty in the page directory.
+Swapping the frame creates an entry in Q's swap table.
+
+After we have stored the page, we call frame_free_page, which removes the
+entry of the frame from the frame table, removes it from the victim's page
+directory, and calls palloc_free_page, in that order.
+
+It is important that we remove the pagedir entry before calling palloc_get_page,
+because removing the pagedir entry means that the victim process Q cannot access
+the page, so at the time that it is given to process P, it is inaccessible to Q.
 
 >> B4: (5 marks)
 >> Explain your heuristic for deciding whether a page fault for an
