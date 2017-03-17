@@ -365,7 +365,7 @@ static void sys_mmap(struct intr_frame * f)
         mapid, file, curr_page, PGSIZE, true);
     supp_page_table_insert(&t->supp_page_table, addr + curr_page, MMAPPED);
   }
-  add_mapping(&t->mappings, mapid, addr, addr + curr_page);
+  add_mapping(&t->mapid_page_table, mapid, addr, addr + curr_page);
 ret:
   f->eax = mapid;
 }
@@ -378,7 +378,8 @@ static void sys_munmap(struct intr_frame * f)
 
 void munmap(mapid_t mapping) {
   struct thread* t = thread_current();
-  struct mapid_to_addr* mapped_addrs = get_mapping(&t->mappings, mapping);
+  struct mapid_to_addr* mapped_addrs = get_mapping(&t->mapid_page_table,
+      mapping);
   struct file *file = NULL;
   for (void* curr = mapped_addrs->start_addr;
        curr < mapped_addrs->end_addr;
@@ -394,7 +395,7 @@ void munmap(mapid_t mapping) {
     mmap_file_page_table_delete_entry(&t->mmap_file_page_table, page);
     supp_page_table_remove(&t->supp_page_table, curr);
   }
-  delete_mapping(&t->mappings, mapping);
+  delete_mapping(&t->mapid_page_table, mapping);
   file_close(file);
 }
 

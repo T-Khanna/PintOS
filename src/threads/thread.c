@@ -689,7 +689,7 @@ init_thread (struct thread *t, const char *name, int priority)
   #ifdef VM
   if (t != initial_thread) {
     supp_page_table_init(&t->supp_page_table);
-    mapping_init(&t->mappings);
+    mapping_init(&t->mapid_page_table);
     mmap_file_page_table_init(&t->mmap_file_page_table);
   }
   #endif
