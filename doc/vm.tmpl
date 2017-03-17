@@ -347,7 +347,16 @@ finished evicting the frame, so there is no race between the two.
 >> during system calls. How do you gracefully handle attempted
 >> accesses to invalid virtual addresses?
 
+The only system calls that access user pages are the read and write system
+calls, which read from or write to a user provided buffer.
 
+We load in and pin all pages that we will need to access during system calls,
+before performing any other operation on the pages. This means that these frames
+should not be evicted, and we should not page fault during disk activity.
+
+We check that all pages in the buffer are valid virtual addresses before we
+start the process of loading and pinning the pages, and if we encounter an
+invalid address in the buffer, we kill the user process.
 
 ---- RATIONALE ----
 
