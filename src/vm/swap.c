@@ -68,7 +68,9 @@ static bool swap_table_less_func(const struct hash_elem *a,
 /* Deallocate memory for a swap table entry */
 static void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED)
 {
-  free(hash_entry(elem, struct swap_table_entry, elem));
+  struct swap_table_entry *e = hash_entry(elem, struct swap_table_entry, elem);
+  bitmap_reset(slot_usage, e->index);
+  free(e);
 }
 
 /* Allocate a swap slot and mark it as in use.
