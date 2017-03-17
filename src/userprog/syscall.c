@@ -257,6 +257,14 @@ static void sys_write(struct intr_frame * f)
     putbuf(buffer, size);
     bytes_written = size;
   } else {
+      for (uintptr_t cur_page = buffer;
+         cur_page < (uintptr_t) buffer + size;
+         cur_page += PGSIZE)
+    {
+      char dontcare = *(char *) cur_page;
+      barrier();
+    }
+
     /* Otherwise we're writing to a file instead. */
     lock_filesys_access();
 
