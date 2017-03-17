@@ -227,6 +227,7 @@ In swap.c, added the following to keep track of the swap block device:
   static const int sectors_per_page = PGSIZE / BLOCK_SECTOR_SIZE;
   static size_t num_slots;           /* Total number of swap slots */
   static struct bitmap *slot_usage;  /* Bitmap to represent usage of slots */
+  struct lock swap_lock;             /* Lock for the swap subsystem */
 
 ---- ALGORITHMS ----
 
@@ -378,7 +379,7 @@ potentially add overhead that we don't need and can avoid (because we'd have to
 handle the locking and unlocking of many mechanisms).
 
 With these two points in mind, we settled on the middle ground and implemented
-two locks - a lock for frames and a lock for the file system. This allows for 
+two locks - a lock for frames and a lock for the file system. This allows for
 higher parallelism but also reduces the amount of deadlocks we might encounter.
 
              MEMORY MAPPED FILES
