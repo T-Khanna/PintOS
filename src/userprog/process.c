@@ -23,6 +23,7 @@
   #include "vm/page.h"
   #include "vm/frame.h"
   #include "vm/mmap.h"
+  #include "vm/swap.h"
 #endif
 
 #define MAX_FILE_NAME 16
@@ -357,6 +358,7 @@ process_exit (void)
     hash_apply(&cur->mapid_page_table, unmap_elem);
     mmap_file_page_table_destroy(&cur->mmap_file_page_table);
     supp_page_table_destroy(&cur->supp_page_table);
+    swap_table_destroy(&cur->swap_table);
   #endif
 
   /* Destroy the current process's page directory and switch back

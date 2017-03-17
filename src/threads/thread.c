@@ -768,8 +768,6 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
     {
       ASSERT (prev != cur);
-      // TODO Maybe handle its swap in the frame table;
-      // TODO TODO TODO MAYBE
       palloc_free_page (prev);
     }
 }

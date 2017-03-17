@@ -354,7 +354,9 @@ static void sys_mmap(struct intr_frame * f)
   uint32_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
   /* Make an spt entry for each page */
 
+  lock_filesys_access();
   file = file_reopen(file);
+  unlock_filesys_access();
   uint32_t curr_page;
   for (curr_page = 0;
        curr_page <= read_bytes;
@@ -395,7 +397,9 @@ void munmap(mapid_t mapping) {
     supp_page_table_remove(&t->supp_page_table, curr);
   }
   delete_mapping(&t->mapid_page_table, mapping);
+  lock_filesys_access();
   file_close(file);
+  unlock_filesys_access();
 }
 
 /******************************
