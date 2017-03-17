@@ -331,7 +331,7 @@ hashed by user address, and the mappings from mapid to the user addresses, which
 is needed to obtain the file pages for the mapid provided:
 
   struct hash mmap_file_page_table;   /* Memory mapped files */
-  struct hash mappings;               /* Mapping link between mapid and user
+  struct hash mapid_page_table;       /* Mapping link between mapid and user
                                          virtual addresses */
 
 ---- ALGORITHMS ----
