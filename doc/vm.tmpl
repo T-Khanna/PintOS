@@ -444,11 +444,11 @@ is needed to obtain the file pages for the mapid provided:
 
 Memory mapped files store the pages through the mmap system call, where we
 allocate a new mapid for the memory mapped file. We set the status of the
-supplementary entry to  After this, we store the supp_page and mmap_file_page
-into the supp_page_table and mmap_file_page_table . We also store the mapid,
-the user address passed into the mmap system call and the last user address we
-stored into the mapid_page_table. This is needed to obtain the user address
-when we call the munmap system call.
+supplementary entry to MMAPPED. After this, we store the supp_page and
+mmap_file_page into the supp_page_table and mmap_file_page_table . We also store
+the mapid, the user address passed into the mmap system call and the last user
+address we stored into the mapid_page_table. This is needed to obtain the user
+address when we call the munmap system call.
 
 No pages are loaded during the mmap system call, we lazy load the pages through
 the page fault handler. When we get a page fault for the memory mapped file, we
