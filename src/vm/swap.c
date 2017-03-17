@@ -12,7 +12,6 @@ bool swap_table_less_func(const struct hash_elem *a, const struct hash_elem *b,
 void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED);
 static swap_index_t allocate_slot(void);
 
-void print_swap_table(struct hash *swap_table);
 void print_swap_table_elem(struct hash_elem *elem, void *aux UNUSED);
 
 static struct block *swap_dev;     /* The swap device */
@@ -69,7 +68,9 @@ bool swap_table_less_func(const struct hash_elem *a, const struct hash_elem *b,
 /* Deallocate memory for a swap table entry */
 void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED)
 {
-  free(hash_entry(elem, struct swap_table_entry, elem));
+  struct swap_table_entry *e = hash_entry(elem, struct swap_table_entry, elem);
+  bitmap_reset(slot_usage, e->index);
+  free(e);
 }
 
 /* Allocate a swap slot and mark it as in use.
@@ -85,6 +86,7 @@ static swap_index_t allocate_slot(void)
    if the operation succeeded. */
 bool swap_into_memory(struct hash *table, void *vaddr, void *kaddr)
 {
+    //printf("Moving back %p to %p\n", vaddr, kaddr);
   /* check that kaddr and vaddr are valid. */
   ASSERT(is_kernel_vaddr(kaddr));
   ASSERT(is_user_vaddr(vaddr));
@@ -137,6 +139,7 @@ void print_swap_table_elem(struct hash_elem *e, void *aux UNUSED)
    Panics the kernel if we're out of swap space */
 void swap_to_disk(struct hash *table, void *vaddr, void *kaddr)
 {
+    //printf("Swapping to disk the frame %p representing %p\n", kaddr, vaddr);
   /* check that kaddr and vaddr are valid */
   ASSERT(is_kernel_vaddr(kaddr));
   ASSERT(is_user_vaddr(vaddr));

@@ -18,6 +18,7 @@
 #include "vm/frame.h"
 #include "vm/mmap.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 #endif
 
 /* Function to call the corresponding system call with the syscall number. */
@@ -81,6 +82,7 @@ syscall_handler (struct intr_frame *f)
   if (syscall_number < 0 || syscall_number > IMPLEMENTED_SYSCALLS) {
     process_kill();
   }
+  //printf("New Syscall from thread %d with syscall_id %d\n", thread_current()->tid, syscall_number);
   system_calls[syscall_number](f);
 }
 
@@ -116,6 +118,7 @@ static void sys_exec (struct intr_frame * f)
   const char* cmd_line = (const char*) get_arg(f, 1);
   check_safe_string(cmd_line);
   lock_filesys_access();
+  //printf("Executing %s\n", cmd_line);
   f->eax = process_execute(cmd_line);
   unlock_filesys_access();
 }
@@ -123,6 +126,7 @@ static void sys_exec (struct intr_frame * f)
 static void sys_wait (struct intr_frame * f)
 {
   tid_t tid = (tid_t) get_arg(f, 1);
+  //printf("SYSCALL! THREAD %d WILL WAIT ON THREAD %d\n", thread_current()->tid, tid);
   f->eax = process_wait(tid);
 }
 
@@ -156,6 +160,8 @@ static void sys_open(struct intr_frame * f)
   /* File descriptor. This is -1 if the file could not be opened. */
   int fd = -1;
 
+  //printf("OPENING FILE\n");
+
   const char* name = (const char*) get_arg(f, 1);
   check_safe_string(name);
 
@@ -182,6 +188,7 @@ static void sys_open(struct intr_frame * f)
 
 exit:
   f->eax = fd;
+  //printf("THE FILE HAS BEEN OPENED\n");
 }
 
 static void sys_filesize(struct intr_frame * f)
@@ -222,7 +229,7 @@ static void sys_read(struct intr_frame * f)
     bytes_read = size;
 
   } else {
-    for (uintptr_t cur_page = buffer;
+    for (uintptr_t cur_page = (uintptr_t) buffer;
          cur_page < (uintptr_t) buffer + size;
          cur_page += PGSIZE)
     {
@@ -335,13 +342,15 @@ static void sys_mmap(struct intr_frame * f)
   if (pg_ofs(addr) != 0) {
     goto ret;
   }
+
+  lock_filesys_access();  
+
   /* addr is page_aligned here */
   struct file* file = find_file(fd);
   if (file == NULL || addr == NULL || fd < 2) {
     goto ret;
   }
 
-  lock_filesys_access();
   uint32_t read_bytes = file_length(file);
   unlock_filesys_access();
 
@@ -354,7 +363,9 @@ static void sys_mmap(struct intr_frame * f)
   uint32_t zero_bytes = PGSIZE - read_bytes % PGSIZE;
   /* Make an spt entry for each page */
 
+  lock_filesys_access();
   file = file_reopen(file);
+  unlock_filesys_access();
   uint32_t curr_page;
   for (curr_page = 0;
        curr_page <= read_bytes;
@@ -368,7 +379,13 @@ static void sys_mmap(struct intr_frame * f)
   add_mapping(&t->mappings, mapid, addr, addr + curr_page);
 ret:
   f->eax = mapid;
-  printf("WE GET HERE\n");
+  //printf("WE GET HERE\n");
+  //print_spt(&t->supp_page_table);
+  //printf("-SWAP-\n");
+  //print_swap_table(&t->swap_table);
+  //if (thread_current() == t) {
+      //printf("The threads are equal\n");
+  //}
 }
 
 static void sys_munmap(struct intr_frame * f)
@@ -396,7 +413,9 @@ void munmap(mapid_t mapping) {
     supp_page_table_remove(&t->supp_page_table, curr);
   }
   delete_mapping(&t->mappings, mapping);
+  lock_filesys_access();
   file_close(file);
+  unlock_filesys_access();
 }
 
 /******************************

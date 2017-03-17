@@ -474,7 +474,9 @@ thread_update_effective_priority (struct thread *t)
   ASSERT(!thread_mlfqs);
 
   t->effective_priority = t->priority;
-
+  #ifdef VM
+    return;
+  #endif
   /* Loops over each lock in the locks_held list, and queries the head of
    * each waiters list to find the thread with maximum priority. */
   if (!list_empty(&t->locks_held)) {

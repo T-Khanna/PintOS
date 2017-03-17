@@ -11,6 +11,7 @@ void swap_table_init(struct hash *table);
 void swap_table_destroy(struct hash *table);
 bool swap_into_memory(struct hash *table, void *vaddr, void *kaddr);
 void swap_to_disk(struct hash *table, void *vaddr, void *kaddr);
+void print_swap_table(struct hash *swap_table);
 
 struct swap_table_entry {
   void *vaddr;            /* The start of the page that this swap block holds */

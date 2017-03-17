@@ -23,6 +23,7 @@
   #include "vm/page.h"
   #include "vm/frame.h"
   #include "vm/mmap.h"
+  #include "vm/swap.h"
 #endif
 
 #define MAX_FILE_NAME 16
@@ -72,6 +73,7 @@ process_execute (const char *command)
 
   /* Create a new thread to execute FILE_NAME. */
   tid_t tid = thread_create(file_name, PRI_DEFAULT, start_process, cmd_copy);
+  //printf("Created a new thread with TID %d\n", tid);
   if (tid == TID_ERROR) {
     palloc_free_page (cmd_copy);
     return tid;
@@ -290,6 +292,8 @@ process_wait (tid_t child_tid)
   struct thread* curr = thread_current();
   struct process* child = get_process_by_tid(child_tid, &curr->child_processes);
 
+  //printf("Thread %d waiting on child %d\n", curr->tid, child_tid);
+
   if (child == NULL) {
     return RET_ERROR;
   }
@@ -357,6 +361,7 @@ process_exit (void)
     hash_apply(&cur->mappings, unmap_elem);
     mmap_file_page_table_destroy(&cur->mmap_file_page_table);
     supp_page_table_destroy(&cur->supp_page_table);
+    swap_table_destroy(&cur->swap_table);
   #endif
 
   /* Destroy the current process's page directory and switch back
