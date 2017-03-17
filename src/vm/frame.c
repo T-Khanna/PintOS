@@ -125,8 +125,9 @@ static struct frame * choose_victim(void)
   /* Choose the first entry in the hash table, which is essentially random */
   struct hash_iterator iter;
   hash_first(&iter, &hash_table);
-  hash_next(&iter);
-  victim = hash_entry(hash_cur(&iter), struct frame, hash_elem);
+  while (hash_next(&iter)) {
+    victim = hash_entry(hash_cur(&iter), struct frame, hash_elem);
+  }
 
   /* make sure we found a victim */
   ASSERT(victim != NULL);
