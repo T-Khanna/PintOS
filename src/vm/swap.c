@@ -6,14 +6,12 @@
 #include "threads/thread.h"
 
 /* Functions required to use hash table */
-unsigned swap_table_hash_func(const struct hash_elem *elem, void *aux UNUSED);
-bool swap_table_less_func(const struct hash_elem *a, const struct hash_elem *b,
+static unsigned swap_table_hash_func(const struct hash_elem *elem,
     void *aux UNUSED);
-void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED);
+static bool swap_table_less_func(const struct hash_elem *a,
+    const struct hash_elem *b, void *aux UNUSED);
+static void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED);
 static swap_index_t allocate_slot(void);
-
-void print_swap_table(struct hash *swap_table);
-void print_swap_table_elem(struct hash_elem *elem, void *aux UNUSED);
 
 static struct block *swap_dev;     /* The swap device */
 /* Note: assumes that page size is a multiple of sector size (and larger) */
@@ -48,7 +46,8 @@ void swap_table_destroy(struct hash *table)
 }
 
 /* Use vaddr as the key, and just call hash_bytes on it */
-unsigned swap_table_hash_func(const struct hash_elem *elem, void *aux UNUSED)
+static unsigned swap_table_hash_func(const struct hash_elem *elem,
+    void *aux UNUSED)
 {
   struct swap_table_entry *entry
       = hash_entry(elem, struct swap_table_entry, elem);
@@ -56,8 +55,8 @@ unsigned swap_table_hash_func(const struct hash_elem *elem, void *aux UNUSED)
 }
 
 /* Use vaddr as the key and just compare those */
-bool swap_table_less_func(const struct hash_elem *a, const struct hash_elem *b,
-    void *aux UNUSED)
+static bool swap_table_less_func(const struct hash_elem *a,
+    const struct hash_elem *b, void *aux UNUSED)
 {
     struct swap_table_entry *a_entry
         = hash_entry(a, struct swap_table_entry, elem);
@@ -67,7 +66,7 @@ bool swap_table_less_func(const struct hash_elem *a, const struct hash_elem *b,
 }
 
 /* Deallocate memory for a swap table entry */
-void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED)
+static void delete_swap_table_entry(struct hash_elem *elem, void *aux UNUSED)
 {
   free(hash_entry(elem, struct swap_table_entry, elem));
 }
@@ -118,20 +117,6 @@ bool swap_into_memory(struct hash *table, void *vaddr, void *kaddr)
   return true;
 }
 
-void print_swap_table(struct hash *swap_table) {
-  hash_apply(swap_table, print_swap_table_elem);
-}
-
-void print_swap_table_elem(struct hash_elem *e, void *aux UNUSED)
-{
-  struct swap_table_entry *entry = hash_entry(e, struct swap_table_entry, elem);
-  if (entry == NULL) {
-    printf("SWAP TABLE ENTRY WITHOUT AN ENTRY!!!!\n");
-    ASSERT(false);
-  }
-  printf("VADDR: %p, SWAP INDEX: %d\n", entry->vaddr, entry->index);
-}
-
 /* Swap to disk the frame at kaddr, (representing user address vaddr), and
    record this in the swap table passed.
    Panics the kernel if we're out of swap space */
@@ -161,17 +146,6 @@ void swap_to_disk(struct hash *table, void *vaddr, void *kaddr)
   entry->index = slot_index;
   /* If hash_insert returned non-null, there was already an entry in the swap
      table for that page. */
-  if (hash_insert(table, &entry->elem) != NULL) {
-    struct thread *cur = thread_current();
-
-    printf("BAD THINGS HAPPED WHEN SWAPPING PAGE %p\n", vaddr);
-
-    printf("---SPT---\n");
-    print_spt(&cur->supp_page_table);
-
-    printf("---SWAP TABLE AT %p---\n", table);
-    print_swap_table(table);
-
-    ASSERT(false);
-  }
+  struct hash_elem* inserted = hash_insert(table, &entry->elem);
+  ASSERT(inserted == NULL);
 }

@@ -11,7 +11,6 @@
 #include "userprog/pagedir.h"
 #include "userprog/syscall.h"
 
-
 static unsigned frame_hash_func(const struct hash_elem *e, void *aux);
 static bool frame_hash_less(const struct hash_elem *e1,
      const struct hash_elem *e2, void *aux);
@@ -20,36 +19,23 @@ static void frame_access_unlock(void);
 static struct frame * choose_victim(void);
 static void frame_evict(struct frame *victim);
 
-struct hash hash_table;
-struct lock frame_lock;
-static struct hash_iterator clock_pos;
+static struct hash frame_table;
+static struct lock frame_lock;
 
 void frame_init (void)
 {
     lock_init(&frame_lock);
-    hash_init(&hash_table, &frame_hash_func, &frame_hash_less, NULL);
+    hash_init(&frame_table, &frame_hash_func, &frame_hash_less, NULL);
 }
 
-void frame_access_lock()
+static void frame_access_lock()
 {
     lock_acquire(&frame_lock);
 }
 
-void frame_access_unlock()
+static void frame_access_unlock()
 {
     lock_release(&frame_lock);
-}
-
-static void print_frame(struct hash_elem* hash_elem, void* aux UNUSED);
-
-void print_frame_table(void) {
-  hash_apply(&hash_table, print_frame);
-}
-
-static void print_frame(struct hash_elem* elem, void* aux UNUSED) {
-  struct frame* found = hash_entry(elem, struct frame, hash_elem);
-  printf("FOR THREAD %s WITH TID %d, KERNEL VIRTUAL ADDRESS IS: %p, USER ADDRESS IS %p\n",
-      found->t->name, found->t->tid, found->kaddr, found->uaddr);
 }
 
 /* Get a frame of memory for the current thread */
@@ -77,12 +63,11 @@ void* frame_get_page(void *upage)
     new_frame->uaddr = upage;
 
 
-    struct hash_elem *success = hash_insert(&hash_table, &new_frame->hash_elem);
+    struct hash_elem *success = hash_insert(&frame_table, &new_frame->hash_elem);
     frame_access_unlock();
 
     if (success != NULL) {
-        //TODO
-        //PANIC("Something has gone terribly wrong!\n");
+      PANIC("Trying to insert pre-existing frame to the frame table");
     }
 
     return kpage;
@@ -100,7 +85,7 @@ void frame_free_page(void *kaddr)
       frame_access_lock();
     }
 
-    struct hash_elem *del_elem = hash_delete(&hash_table, &f.hash_elem);
+    struct hash_elem *del_elem = hash_delete(&frame_table, &f.hash_elem);
     ASSERT(del_elem != NULL);
     struct frame *del_frame = hash_entry(del_elem, struct frame, hash_elem);
 
@@ -118,13 +103,13 @@ void frame_free_page(void *kaddr)
 /* Choose a frame as a candidate for eviction. */
 static struct frame * choose_victim(void)
 {
-  ASSERT(!hash_empty(&hash_table));
+  ASSERT(!hash_empty(&frame_table));
 
   struct frame *victim = NULL;
 
   /* Choose the first entry in the hash table, which is essentially random */
   struct hash_iterator iter;
-  hash_first(&iter, &hash_table);
+  hash_first(&iter, &frame_table);
   while (hash_next(&iter)) {
     victim = hash_entry(hash_cur(&iter), struct frame, hash_elem);
   }
@@ -139,7 +124,7 @@ bool clear_frame(void *kaddr) {
   ASSERT(is_kernel_vaddr(kaddr));
   struct frame target;
   target.kaddr = kaddr;
-  struct hash_elem *elem = hash_find(&hash_table, &target.hash_elem);
+  struct hash_elem *elem = hash_find(&frame_table, &target.hash_elem);
   if (elem == NULL) {
     return false;
   }
@@ -177,8 +162,6 @@ static void frame_evict(struct frame *victim)
     case ZEROED:
     default:
       /* These types of pages shouldn't be in a frame, panic the kernel */
-      printf("SPT STATUS: %d\n", spte->status);
-      print_spt(&victim->t->supp_page_table);
       PANIC("Bad type of page in memory!");
       NOT_REACHED();
   }
@@ -187,13 +170,13 @@ static void frame_evict(struct frame *victim)
   frame_free_page(victim->kaddr);
 }
 
-unsigned frame_hash_func(const struct hash_elem *e_, void *aux UNUSED)
+static unsigned frame_hash_func(const struct hash_elem *e_, void *aux UNUSED)
 {
     struct frame *e = hash_entry(e_, struct frame, hash_elem);
     return hash_int((int32_t) e->kaddr);
 }
 
-bool frame_hash_less(const struct hash_elem *e1_,
+static bool frame_hash_less(const struct hash_elem *e1_,
     const struct hash_elem *e2_, void *aux UNUSED)
 {
     struct frame *e1 = hash_entry(e1_, struct frame, hash_elem);
