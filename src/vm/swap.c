@@ -18,6 +18,7 @@ static struct block *swap_dev;     /* The swap device */
 static const int sectors_per_page = PGSIZE / BLOCK_SECTOR_SIZE;
 static size_t num_slots;           /* Total number of swap slots */
 static struct bitmap *slot_usage;  /* Bitmap to represent usage of slots */
+struct lock swap_lock;
 
 /* Initialise the swap system */
 void swap_init(void)
@@ -25,6 +26,7 @@ void swap_init(void)
   swap_dev = block_get_role(BLOCK_SWAP);
   num_slots = block_size(swap_dev) / sectors_per_page;
   slot_usage = bitmap_create(num_slots);
+  lock_init(&swap_lock);
 }
 
 /* Deinitialise the swap system */
@@ -90,6 +92,8 @@ bool swap_into_memory(struct hash *table, void *vaddr, void *kaddr)
   ASSERT(is_kernel_vaddr(kaddr));
   ASSERT(is_user_vaddr(vaddr));
 
+  lock_acquire(&swap_lock);
+
   /* Find the entry for vaddr in the swap table. */
   struct swap_table_entry search_entry;
   search_entry.vaddr = vaddr;
@@ -116,6 +120,8 @@ bool swap_into_memory(struct hash *table, void *vaddr, void *kaddr)
   }
   bitmap_reset(slot_usage, index);
 
+  lock_release(&swap_lock);
+
   return true;
 }
 
@@ -127,6 +133,8 @@ void swap_to_disk(struct hash *table, void *vaddr, void *kaddr)
   /* check that kaddr and vaddr are valid */
   ASSERT(is_kernel_vaddr(kaddr));
   ASSERT(is_user_vaddr(vaddr));
+
+  lock_acquire(&swap_lock);
 
   swap_index_t slot_index = allocate_slot();
   if (slot_index == BITMAP_ERROR) {
@@ -150,4 +158,6 @@ void swap_to_disk(struct hash *table, void *vaddr, void *kaddr)
      table for that page. */
   struct hash_elem* inserted = hash_insert(table, &entry->elem);
   ASSERT(inserted == NULL);
+
+  lock_release(&swap_lock);
 }
