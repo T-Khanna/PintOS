@@ -156,12 +156,14 @@ static void frame_evict(struct frame *victim)
   switch (spte->status) {
     case LOADED:
       /* normal memory, swap out to disk */
+      pagedir_clear_page(victim->t->pagedir, victim->uaddr);
       swap_to_disk(&victim->t->swap_table, victim->uaddr, victim->kaddr);
       spte->status = SWAPPED;
       break;
     case MMAPPED:
       /* write the frame back to disk, if it has been modified */
       if (pagedir_is_dirty(victim->t->pagedir, victim->uaddr)) {
+        pagedir_clear_page(victim->t->pagedir, victim->uaddr);
         struct mmap_file_page *mmfp = mmap_file_page_table_get(
             &victim->t->mmap_file_page_table, victim->uaddr);
         lock_filesys_access();

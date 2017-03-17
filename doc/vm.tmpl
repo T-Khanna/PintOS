@@ -334,7 +334,13 @@ frame lock while holding either the filesystem lock or swap lock.
 >> the page during the eviction process?  How do you avoid a race
 >> between P evicting Q's frame and Q faulting the page back in?
 
+We ensure that Q cannot modify the page during the eviction by removing the page
+from Q's page directory before we wite it out to disk, so any attempts to access
+the page during this time will result in a page fault for Q.
 
+P holds the frame table lock while it is evicting Q's frame, so if Q page
+faults, when it attempts to get a frame of memory, it will wait until P has
+finished evicting the frame, so there is no race between the two.
 
 >> B7: (5 marks)
 >> Explain how you handle access to paged-out pages that occur
