@@ -266,17 +266,18 @@ the page, so at the time that it is given to process P, it is inaccessible to Q.
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
 
-We consider a valid stack address if it points to a location lower
-than PHYS_BASE, and it is either above the stack pointer, or 4 or 32
-bytes below it, because of the PUSH and PUSHA instructions.
+We have chosen 8MB as the maximum stack size for user processes.
+
+We consider a valid stack address if it points to a location between PHYS_BASE
+and PHYS_BASE - STACK_MAX_SIZE (the maximum stack size), and it is either above
+the stack pointer, or 4 or 32 bytes below it, because of the PUSH and PUSHA
+instructions.
 
 Since the page fault could be caused by a system call, the syscall
-handler saves a pointer to the stack pointer inside the thread
-structure. If eip points to an address above PHYS_BASE, and it is
-therefore a page fault cause by a system call, we access the stack
-pointer saved in the thread structure, otherwise we access the
-interrupt frame passed to the page fault handler.
-
+handler saves the stack pointer inside the thread structure. If eip points to
+an address above PHYS_BASE, and it is therefore a page fault cause by a system
+call, we access the stack pointer saved in the thread structure, otherwise we
+access the interrupt frame passed to the page fault handler.
 
 ---- SYNCHRONIZATION ----
 
@@ -286,7 +287,11 @@ interrupt frame passed to the page fault handler.
 >> textbook for an explanation of the necessary conditions for
 >> deadlock.)
 
+We put in place locks for the frame table and swap system, as well still having
+the filesystem lock from task 2.
 
+A process obtains the frame table lock when it is getting a frame (which may
+involve evicing another frame), or when it is freeing a page.
 
 >> B6: (5 marks)
 >> A page fault in process P can cause another process Q's frame
