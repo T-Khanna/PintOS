@@ -228,7 +228,7 @@ within the swap table:
 >> evicted.  Describe your code for choosing a frame to evict.
 
 In frame.c, we have a choose_victim function which is what we use for choosing
-which frame to evict - currently this is done by using a random strategy. 
+which frame to evict - currently this is done by using a random strategy.
 
 We do this by choosing the first elemnt of the hash table, which is sorted
 
@@ -365,6 +365,8 @@ is needed to obtain the file pages for the mapid provided:
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+
+
 >> C3: (5 marks)
 >> Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
@@ -388,3 +390,28 @@ start user address is valid for this mmap system call.
 >> that much of their implementation can be shared.  Explain why your
 >> implementation either does or does not share much of the code for
 >> the two situations.
+
+When we store pages for the executables through load_segment, we call the
+mmap_file_page_table_insert function and pass in all the relevant file
+information and user address to the mmap_file_page_table. We also set the
+supplementary page table entry to MMAPPED before storing it in the
+supp_page_table. We do not set the mapid value however, as this is not a memory
+mapped file.
+
+Memory mapped files store the pages through the mmap system call, where we also
+allocate a new mapid for the mmapped file. After this, we store the pages in
+the supp_page_table and mmap_file_page_table as before. We also store the mapid,
+the user address passed into the mmap system call and the last user address we
+stored into the mapid_page_table. This is needed to obtain the user address
+when we call the munmap system call.
+
+We treat the executable exactly the same way we treat a memory mapped
+file when we lazy load the pages. When we page fault, we enter the MMAPPED case
+when we check the supplementary page entry. At this point, we obtain the
+mmap_file_page and read the file at the offset stored into the user page. This
+avoids potentially duplicating the code for mmapped files and executables and
+avoids duplicating the components of the mmap_file_page_table data structure.
+
+As such, we do not share the code when we store the file, as the information we
+need differs. We do share the code when we lazy load the page, as the behaviour
+is identical there.
