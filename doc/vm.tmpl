@@ -227,7 +227,8 @@ within the swap table:
 >> When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
 
-We implement the strategy of choosing a random frame to evict.
+In frame.c, we have a choose_victim function which is what we use for choosing
+which frame to evict - currently this is done by using a random strategy. 
 
 We do this by choosing the first elemnt of the hash table, which is sorted
 
@@ -235,6 +236,8 @@ We do this by choosing the first elemnt of the hash table, which is sorted
 >> When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data
 >> structures) to reflect the frame Q no longer has?
+
+
 
 >> B4: (5 marks)
 >> Explain your heuristic for deciding whether a page fault for an
@@ -261,16 +264,22 @@ interrupt frame passed to the page fault handler.
 >> textbook for an explanation of the necessary conditions for
 >> deadlock.)
 
+
+
 >> B6: (5 marks)
 >> A page fault in process P can cause another process Q's frame
 >> to be evicted.  How do you ensure that Q cannot access or modify
 >> the page during the eviction process?  How do you avoid a race
 >> between P evicting Q's frame and Q faulting the page back in?
 
+
+
 >> B7: (5 marks)
 >> Explain how you handle access to paged-out pages that occur
 >> during system calls. How do you gracefully handle attempted
 >> accesses to invalid virtual addresses?
+
+
 
 ---- RATIONALE ----
 
@@ -281,6 +290,8 @@ interrupt frame passed to the page fault handler.
 >> possibility for deadlock but allows for high parallelism.  Explain
 >> where your design falls along this continuum and why you chose to
 >> design it this way.
+
+
 
              MEMORY MAPPED FILES
              ===================
