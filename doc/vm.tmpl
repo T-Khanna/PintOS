@@ -33,13 +33,13 @@ Thomas Bower tb1215@ic.ac.uk
 >> enumeration that relates to your supplemental page table.
 >> Identify the purpose of each in 25 words or less.
 
-in thread.h, added member to struct thread:
+In thread.h, added member to struct thread:
 
   struct hash supp_page_table;
   /* The supplementary page table for this thread, entries take form of
      struct supp_page */
 
-in page.h, created struct supp_page to represent each entry of the supplementary
+In page.h, created struct supp_page to represent each entry of the supplementary
 page table:
 
   struct supp_page {
@@ -48,7 +48,7 @@ page table:
     struct hash_elem hash_elem; /* Bookkeeping */
   };
 
-in page.h, created enum page_status_t to represent to status of each page in the
+In page.h, created enum page_status_t to represent to status of each page in the
 supplementary page table:
 
   /* The status of a page */
@@ -76,25 +76,25 @@ We then retrieve the status of the page from the supplementary page table.
 There are four possible statuses of a page:
 
 * SWAPPED
-the page has been evicted from memory, and lives on disk. We must now load it
-back into memory. We do this by consulting the thread's swap table to find the
-index of the swap slot that this page lives in, and loading this in from the
-swap block device.
-We then mark this page as LOADED in the supplementary page table
+  the page has been evicted from memory, and lives on disk. We must now load it
+  back into memory. We do this by consulting the thread's swap table to find the
+  index of the swap slot that this page lives in, and loading this in from the
+  swap block device.
+  We then mark this page as LOADED in the supplementary page table
 
 * ZEROED
-the page should be a newly allocated zeroed out page. We already have this, so
-we simply mark the page as loaded in the supplmentary page table.
+  the page should be a newly allocated zeroed out page. We already have this, so
+  we simply mark the page as loaded in the supplmentary page table.
 
 * MMAPPED
-the page should be loaded from a file. we look up the entry in the file page
-table, which gives us the file that this page is from, the offset of the start
-of the page into the file, and the size of the page (how many bytes belong to
-this page, starting from the offset). We seek the file to the offset and read
-size bytes into the frame we got from the allocator.
+  the page should be loaded from a file. we look up the entry in the file page
+  table, which gives us the file that this page is from, the offset of the start
+  of the page into the file, and the size of the page (how many bytes belong to
+  this page, starting from the offset). We seek the file to the offset and read
+  size bytes into the frame we got from the allocator.
 
 * LOADED
-we should never page fault on these types of pages, so we panic the kernel.
+  we should never page fault on these types of pages, so we panic the kernel.
 
 >> A3: (5 marks)
 >> How does your code coordinate accessed and dirty bits between
@@ -105,7 +105,7 @@ we should never page fault on these types of pages, so we panic the kernel.
 We have not implemented sharing of pages between processes. As such, the only
 page directory entries that we care about the accessed and dirty bits for are
 memory mapped files (to determine whether we need to write a page back to the
-file when it gets evicted). In system calls, we always acces user memory using
+file when it gets evicted). In system calls, we always access user memory using
 the user virtual addresses, and as such the accessed and dirty bits for the
 in the page directory of the process that owns a page are canonical, and these
 are the bits we look at when we evict a memory mapped page from memory.
@@ -164,7 +164,23 @@ has information about where to look to find the data that belongs in a page.
 >> enumeration that relates to your frame table and swap table.
 >> Identify the purpose of each in 25 words or less.
 
-in frame.h, added struct frame to represent individual frames in the frame
+In thread.h, we have added the hash tables corresponding to a thread's
+supplementary page table, swap table, and memory mapped files:
+
+  struct thread {
+    // ...
+    #ifdef VM
+      struct hash supp_page_table;        /* Supplementary page table */
+      struct hash mappings;               /* Mapping link between mapid and user
+                                             virtual addresses */
+      struct hash mmap_file_page_table;   /* Memory mapped files */
+      struct hash swap_table;             /* Thread's swap table */
+      void **esp;
+    #endif
+    // ...
+  };
+
+In frame.h, added struct frame to represent individual frames in the frame
 table:
 
   struct frame {
@@ -177,13 +193,13 @@ table:
                                    a hash table. */
   };
 
-in swap.h, added the following type definition:
+In swap.h, added the following type definition:
 
   typedef size_t swap_index_t; /* ease reading with swap table entries by
                                   choosing a more sensible name for the
                                   swap index */
 
-in swap.h, added struct swap_table_entry to represent an individual entry
+In swap.h, added struct swap_table_entry to represent an individual entry
 within the swap table:
 
   struct swap_table_entry {
@@ -266,26 +282,42 @@ interrupt frame passed to the page fault handler.
 
 TODO Maybe add here the function pointer array as well?
 
-typedef int mapid_t;          /* Map id as integer */
+In thread.h, we have added the hash tables corresponding to a thread's
+supplementary page table, swap table, and memory mapped files:
 
-struct mmap_file_page {
-  mapid_t mapid;              /* The mapid for this mapping belongs to */
-  void* vaddr;                /* Reference to the page for this entry */
-  struct file* file;          /* Reference to the file for the page */
-  off_t ofs;                  /* The offset of the start of the page into the
-                                 file */
-  uint32_t size;              /* The number of bytes into the page that belong
-                                 to the file. */
-  bool writable;              /* Check if page is writable or not */
-  struct hash_elem hash_elem; /* Bookkeeping */
-};
+  struct thread {
+    // ...
+    #ifdef VM
+      struct hash supp_page_table;        /* Supplementary page table */
+      struct hash mappings;               /* Mapping link between mapid and user
+                                             virtual addresses */
+      struct hash mmap_file_page_table;   /* Memory mapped files */
+      struct hash swap_table;             /* Thread's swap table */
+      void **esp;
+    #endif
+    // ...
+  };
 
-struct mapid_to_addr {
-  mapid_t mapid;              /* Id of the mapping referred to */
-  void* start_addr;           /* Starting user address from the mapping */
-  void* end_addr;             /* Number of bytes of the mmapped file */
-  struct hash_elem hash_elem; /* Bookkeeping */
-};
+  typedef int mapid_t;          /* Map id as integer */
+
+  struct mmap_file_page {
+    mapid_t mapid;              /* The mapid for this mapping belongs to */
+    void* vaddr;                /* Reference to the page for this entry */
+    struct file* file;          /* Reference to the file for the page */
+    off_t ofs;                  /* The offset of the start of the page into the
+                                   file */
+    uint32_t size;              /* The number of bytes into the page that belong
+                                   to the file. */
+    bool writable;              /* Check if page is writable or not */
+    struct hash_elem hash_elem; /* Bookkeeping */
+  };
+
+  struct mapid_to_addr {
+    mapid_t mapid;              /* Id of the mapping referred to */
+    void* start_addr;           /* Starting user address from the mapping */
+    void* end_addr;             /* Number of bytes of the mmapped file */
+    struct hash_elem hash_elem; /* Bookkeeping */
+  };
 
 ---- ALGORITHMS ----
 
