@@ -7,12 +7,12 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 
-unsigned supp_pte_hash_func(const struct hash_elem *elem,
+static unsigned supp_pte_hash_func(const struct hash_elem *elem,
     void *aux UNUSED);
-bool supp_pte_less_func(const struct hash_elem *a,
+static bool supp_pte_less_func(const struct hash_elem *a,
     const struct hash_elem *b, void *aux UNUSED);
-void delete_supp_pte(struct hash_elem *elem, void *aux UNUSED);
-void free_pte_related_resources(struct hash_elem *elem, void *pd_);
+static void delete_supp_pte(struct hash_elem *elem, void *aux UNUSED);
+static void free_pte_related_resources(struct hash_elem *elem, void *pd_);
 
 /* Initialises a supplementary page table, and returns whether it was successful
    in doing so */
@@ -32,7 +32,7 @@ void supp_page_table_destroy(struct hash *table)
 
 /* Take appropriate action for a supplemntary page table entry when a process
    exits.*/
-void free_pte_related_resources(struct hash_elem *elem, void *aux UNUSED)
+static void free_pte_related_resources(struct hash_elem *elem, void *aux UNUSED)
 {
   struct supp_page *entry
       = hash_entry(elem, struct supp_page, hash_elem);
@@ -88,50 +88,9 @@ void supp_page_table_remove(struct hash *hash, void *vaddr)
   delete_supp_pte(found, NULL);
 }
 
-/* print an spt, one line per entry */
-void print_spt(struct hash *spt)
-{
-  hash_apply(spt, print_spt_entry);
-}
-
-void print_spt_entry(struct hash_elem *elem, void *aux UNUSED)
-{
-  struct supp_page *page = hash_entry(elem, struct supp_page, hash_elem);
-  char status[10];
-  status_string(page->status, status);
-
-  printf("VADDR: %p, STATUS: %s\n", page->vaddr, status);
-}
-
-/* put the status string into the string passed */
-void status_string(enum page_status_t status, char *str) {
-  switch (status) {
-    case LOADED:;
-      strlcpy(str, "LOADED", 10);
-      break;
-    case MMAPPED:;
-      strlcpy(str, "MMAPPED", 10);
-      break;
-    case SWAPPED:;
-      strlcpy(str, "SWAPPED", 10);
-      break;
-    case ZEROED:;
-      strlcpy(str, "ZEROED", 10);
-      break;
-    default:
-      strlcpy(str, "UNKOWN", 10);
-  }
-}
-
-/* Used for loading of executables. */
-bool supp_page_table_insert_entry(struct hash *hash, struct supp_page* entry)
-{
-  struct hash_elem *prev = hash_insert(hash, &entry->hash_elem);
-  return prev == NULL;
-}
-
 /* function for hashing the page pointer in a supplementary page table entry */
-unsigned supp_pte_hash_func(const struct hash_elem *elem, void *aux UNUSED)
+static unsigned supp_pte_hash_func(const struct hash_elem *elem,
+    void *aux UNUSED)
 {
   struct supp_page *entry
       = hash_entry(elem, struct supp_page, hash_elem);
@@ -139,8 +98,8 @@ unsigned supp_pte_hash_func(const struct hash_elem *elem, void *aux UNUSED)
 }
 
 /* function for comparing the addresses of two supplemtary page table entries */
-bool supp_pte_less_func(const struct hash_elem *a, const struct hash_elem *b,
-    void *aux UNUSED)
+static bool supp_pte_less_func(const struct hash_elem *a,
+    const struct hash_elem *b, void *aux UNUSED)
 {
   struct supp_page *a_entry
       = hash_entry(a, struct supp_page, hash_elem);
@@ -150,7 +109,7 @@ bool supp_pte_less_func(const struct hash_elem *a, const struct hash_elem *b,
 }
 
 /* Free the memory used by an entry in the supplementary page table */
-void delete_supp_pte(struct hash_elem *elem, void *aux UNUSED)
+static void delete_supp_pte(struct hash_elem *elem, void *aux UNUSED)
 {
   free(hash_entry(elem, struct supp_page, hash_elem));
 }

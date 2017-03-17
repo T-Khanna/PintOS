@@ -173,10 +173,7 @@ page_fault (struct intr_frame *f)
   struct supp_page* sp = supp_page_table_get(&t->supp_page_table, vaddr);
 
   /* If the page fault happened because of a syscall, use the saved esp */
-  void *esp = (f->eip > 0xc0000000 ? *t->esp : f->esp);
-
-    //printf("The stack pointer is at: %p\n", esp);
-
+  void *esp = (f->eip > PHYS_BASE ? *t->esp : f->esp);
 
   /* If the page doesn't exist, kill the process. */
   if (sp == NULL) {
@@ -184,17 +181,14 @@ page_fault (struct intr_frame *f)
     if (vaddr >= (uint8_t *) PHYS_BASE - STACK_MAX_SIZE &&
         (fault_addr >= esp || fault_addr == esp - 4
           || fault_addr == esp - 32)) {
-        //printf("HERE!?\n");
       void *kaddr = frame_get_page(vaddr);
       supp_page_table_insert(&t->supp_page_table, vaddr, LOADED);
       install_page(vaddr, kaddr, true);
     } else {
-        //printf("HEYYYY IM HERE\n");
       kill(f);
     }
   } else {
     char status[10];
-    status_string(sp->status, status);
     void *kaddr = frame_get_page(vaddr);
     bool writable = true;
     switch (sp->status) {
@@ -219,8 +213,6 @@ page_fault (struct intr_frame *f)
         sp->status = MMAPPED;
         break;
       case LOADED:
-        print_spt(&t->supp_page_table);
-        printf("faulted on address %p\n", vaddr);
         PANIC("There should be no page fault from page already in memory.");
       default:
         PANIC("unrecognised spt status!");
