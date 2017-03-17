@@ -360,7 +360,6 @@ static void sys_mmap(struct intr_frame * f)
        curr_page <= read_bytes;
        curr_page += PGSIZE)
   {
-    //TODO check writable status of file, make last page size reflect zero byes
     mmap_file_page_table_insert(&t->mmap_file_page_table, addr + curr_page,
         mapid, file, curr_page, PGSIZE, true);
     supp_page_table_insert(&t->supp_page_table, addr + curr_page, MMAPPED);
@@ -450,24 +449,25 @@ static void check_safe_access(const void *ptr, unsigned size)
   for (const void const* base = ptr;
        ptr <= base + size;
        ptr = pg_round_down(ptr + PGSIZE)) {
-      ptr = pg_round_down(ptr);
-      //TODO CLEAN THIS IF CONDITION!!! DON'T MAKE MARK SAD :'(
+    ptr = pg_round_down(ptr);
+    
     if (!is_user_vaddr(ptr)
-        || supp_page_table_get(&cur->supp_page_table, ptr) == NULL) {
-
-    //TODO FIXME MAKE THIS NICER, TOO MUCH REPETITION
-
-     if (ptr != NULL &&
-             (ptr >= (const void *) PHYS_BASE - STACK_MAX_SIZE
-              && ptr < PHYS_BASE) &&
-             (ptr >= *cur->esp || ptr == *cur->esp - 4
-              || ptr == *cur->esp - 32)) {
-         return;
-     }
-     process_kill();
+      || supp_page_table_get(&cur->supp_page_table, ptr) == NULL) {
+      if (!check_stack_access(ptr, *cur->esp)) {
+          process_kill();
+      }
     }
   }
 }
+
+bool check_stack_access(const void *ptr, void *esp)
+{
+  /* Checks that it is a valid pointer to the stack - either above the stack
+   * pointer or after a PUSH or PUSHA instruction */
+  return (ptr >= (const void *) PHYS_BASE - STACK_MAX_SIZE && ptr < PHYS_BASE)
+    && (ptr >= esp || ptr == esp - 4 || ptr == esp - 32);
+}
+
 
 /* Checks whether there any pages in the range are mapped, reserved for
    stack, or are kernel virtual addresses */

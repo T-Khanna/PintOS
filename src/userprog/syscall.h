@@ -13,5 +13,6 @@ struct file *find_file (int fd);
 /* Function to lock and unlock file system access. */
 void lock_filesys_access(void);
 void unlock_filesys_access(void);
+bool check_stack_access(const void *, void *);
 
 #endif /* userprog/syscall.h */
