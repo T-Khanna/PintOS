@@ -70,9 +70,20 @@ that are loaded in memory, and the CPU translates these on-the-fly. For pages
 that are not loaded into memory, a page fault is produced when user programs
 access these pages.
 
-When a user process page faults, we first get a frame from our frame allocator.
+When a user process page faults, we first get a zeroed out frame from our frame
+allocator.
 
-We then retrieve the status of the page from the supplementary page table.
+We then retrieve the status of the page from the supplementary page table, by
+rounding down the page fault address and looking up the entry in the current
+thread's supplementary page table. If we do not find an entry for the page fault
+address, we check if the fault address is a valid stack access. If it is, we get
+a frame of memory from our frame allocator, update the page directory and
+supplementary page table, and return. If it was not a valid stack access, then
+the usr process is buggy, and we kill it.
+
+If there was an entry in the spt, then we get a frame of memory from our frame
+allocator, and load in the correct data for that page, as outlined below.
+
 There are four possible statuses of a page:
 
 * SWAPPED
@@ -106,9 +117,10 @@ We have not implemented sharing of pages between processes. As such, the only
 page directory entries that we care about the accessed and dirty bits for are
 memory mapped files (to determine whether we need to write a page back to the
 file when it gets evicted). In system calls, we always access user memory using
-the user virtual addresses, and as such the accessed and dirty bits for the
-in the page directory of the process that owns a page are canonical, and these
-are the bits we look at when we evict a memory mapped page from memory.
+the user virtual addresses, rather then the kernel addresses, and as such the
+accessed and dirty bits for the in the page directory of the process that owns
+a page are canonical, and these are the bits we look at when we evict a memory
+mapped page from memory.
 
 ---- SYNCHRONIZATION ----
 
@@ -128,7 +140,7 @@ it to the frame table (which must be synchronized).
 
 If there was not free memory, we evict a frame from memory. This may involve
 writing a frame to swap or a file, and then removing the entry from the frame
-table, so mutual exclusion for this process ensures that we do not have any
+table, so mutual exclusion for this operation ensures that we do not have any
 races in any of these operations. Frame eviction then calls palloc_free_page().
 After evicting a frame, we request a page from palloc again, which will now
 succeed.
@@ -147,6 +159,10 @@ table, to manage extra information about where pages are located.
 Hash tables allow for constant time lookup, which is good because the
 supplementary page table will have one entry per page reserved for the process
 to use.
+
+The supplementary page table also only has an entry for the pages that are
+mapped by a process. This is important because the entire virtual address space
+is very large, and an SPT is created for each user process that is running.
 
 We also split information about file mappings and swapped pages into separate
 tables so that we can keep the entry size of each small, because these tables
@@ -168,16 +184,12 @@ In thread.h, we have added the hash tables corresponding to a thread's
 supplementary page table, swap table, and memory mapped files:
 
   struct thread {
-    // ...
-    #ifdef VM
-      struct hash supp_page_table;        /* Supplementary page table */
       struct hash mappings;               /* Mapping link between mapid and user
                                              virtual addresses */
       struct hash mmap_file_page_table;   /* Memory mapped files */
       struct hash swap_table;             /* Thread's swap table */
-      void **esp;
-    #endif
-    // ...
+      void **esp;                         /* Thread's saved stack pointer for
+                                             use during system calls */
   };
 
 In frame.h, added struct frame to represent individual frames in the frame
@@ -195,15 +207,14 @@ table:
 
 In swap.h, added the following type definition:
 
-  typedef size_t swap_index_t; /* ease reading with swap table entries by
-                                  choosing a more sensible name for the
-                                  swap index */
+  typedef size_t swap_index_t;  /* The datatype used to index swap slots on
+                                   disk. */
 
 In swap.h, added struct swap_table_entry to represent an individual entry
 within the swap table:
 
   struct swap_table_entry {
-    void *vaddr;            /* Holds a point to the start of the page that
+    void *vaddr;            /* Pointer to the start of the page that
                                this swap block holds */
     swap_index_t index;     /* The index of the swap block */
     struct hash_elem elem;  /* Hash table element for placement in to a
@@ -216,7 +227,9 @@ within the swap table:
 >> When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
 
+We implement the strategy of choosing a random frame to evict.
 
+We do this by choosing the first elemnt of the hash table, which is sorted
 
 >> B3: (5 marks)
 >> When a process P obtains a frame that was previously used by a
