@@ -1,4 +1,2 @@
-docs/* linguist-documentation
-*.c linguist-language=C
-specs/* linguist-vendored
-tests/* linguist-vendored
+* linguist-vendored
+*.c linguist-vendored=false
